@@ -202,7 +202,7 @@ movesParser = Ne.fromFoldable1 <$>
   clockParser :: Parser Clock
   clockParser =
     ( Sp.anyDigit >>= \d -> case d of
-        '1' -> pure C2
+        '1' -> pure C1
         '2' -> pure C2
         '3' -> pure C3
         '4' -> pure C4

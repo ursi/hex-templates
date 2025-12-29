@@ -16,10 +16,12 @@ import Deku.DOM.Combinators (runOn_)
 import Deku.DOM.Listeners as L
 import Deku.DOM.SVG as Svg
 import Deku.DOM.SVG.Attributes as SvgA
+import Deku.DOM.Self (selfT_)
 import Deku.Do as Deku
 import Deku.Hooks (useState, useState', (<#~>))
 import Deku.Toplevel (runInBody)
-import Hexagon (Hexagon)
+import Effect.Timer (setTimeout)
+import Hexagon (Hexagon(Circ), Orientation(Tall))
 import Hexagon as Hex
 import Magic (magic)
 import Movement
@@ -33,13 +35,18 @@ import Movement
 import Point (Box, IPoint, NPoint, Point(..))
 import Point as Point
 import StringParser (printParserError, runParser)
+import Web.HTML.HTMLElement (focus)
+import Web.HTML.HTMLInputElement as HTMLInputElem
+
+hexSvgId :: String
+hexSvgId = "hexagon"
 
 main :: Effect Unit
 main = do
   void $ runInBody Deku.do
     let
       strokeWidth = 0.05
-      hexagon = Hex.fromWidth 1.0
+      hexagon = Circ 1.0
     set /\ poll <- magic
       { height: useState 3
       , stepsStr: useState "4.7."
@@ -54,15 +61,22 @@ main = do
         poll.height
         poll.stepsStr
     D.div [ A.style_ "height: 100vh;" ]
-      [ D.input
-          [ A.xtypeNumber
-          , A.min_ "1"
-          , A.step_ "1"
-          , A.value $ show <$> poll.height
-          , L.numberOn_ L.input $ round .> set.height
+      [ D.div [ A.style_ "position: absolute" ]
+          [ D.input
+              [ A.xtypeNumber
+              , A.min_ "1"
+              , A.step_ "1"
+              , A.value $ show <$> poll.height
+              , L.numberOn_ L.input $ round .> set.height
+              , selfT_
+                  $ HTMLInputElem.toHTMLElement
+                  .> focus
+                  .> setTimeout 0
+                  .> void
+              ]
+              []
+          , D.input [ A.value poll.stepsStr, L.valueOn_ L.input set.stepsStr ] []
           ]
-          []
-      , D.input [ A.value poll.stepsStr, L.valueOn_ L.input set.stepsStr ] []
       , hexagonsP <#~> case _ of
           Right hexagons ->
             Svg.svg
@@ -70,43 +84,40 @@ main = do
               , SvgA.height_ "100%"
               , SvgA.viewBox_ $ makeViewBox hexagon strokeWidth hexagons
               , SvgA.transform_ "scale(1 -1)"
-              -- , pure $ attributeAtYourOwnRisk "style"
-              --     "position: absolute; bottom: 0; left: 0"
               ]
               [ Svg.defs_
                   [ Svg.polygon
-                      [ SvgA.id_ "hexagon"
+                      [ SvgA.id_ hexSvgId
                       , SvgA.strokeWidth_ $ show strokeWidth
                       , SvgA.stroke_ "blue"
                       , SvgA.fill_ "red"
                       , SvgA.points_
-                          $ svgPoints hexagon
+                          $ Hex.vertices Tall hexagon
                           # map (\(Point x y) -> show x <> "," <> show y)
                           # intercalate " "
                       ]
                       []
                   ]
               , fixed $ Array.fromFoldable
-                    $ placeHexagon hexagon
-                    <$> hexagons
+                  $ placeHexagon hexagon
+                  <$> hexagons
               ]
           Left error -> text_ error
       ]
 
-placeHexagon :: Hexagon ->  IPoint -> Nut
+placeHexagon :: Hexagon -> IPoint -> Nut
 placeHexagon h hexGridPos =
   let
     point = Hex.gridPoint h hexGridPos
   in
     Svg.use
-      [ SvgA.href_ "#hexagon"
+      [ SvgA.href_ $ "#" <> hexSvgId
       , SvgA.transform_
           $ "translate("
-          <> show (Point.x $ point)
+          <> show (Point.x point)
           <> " "
           <> show (Point.y point)
           <> ")"
-      , runOn_ L.click $ logShow hexGridPos
       ]
       []
 
@@ -114,9 +125,10 @@ makeViewBox :: Hexagon -> Number -> NonEmptyArray IPoint -> String
 makeViewBox h strokeWidth positions =
   let
     { min, max } = Point.box $ fold1 $ svgGridPoints h <$> positions
-    strokeOffset = Point
-      (0.5 * strokeWidth)
-      (0.5 * Hex.height (Hex.fromWidth strokeWidth))
+    strokeOffset =
+      Point
+        (0.5 * strokeWidth)
+        (0.5 * Hex.ratio * strokeWidth)
   in
     box2viewBox
       { min: min - strokeOffset
@@ -134,18 +146,8 @@ makeViewBox h strokeWidth positions =
         <#> show
         # intercalate " "
 
-svgPoints :: Hexagon -> NonEmptyArray NPoint
-svgPoints h = cons'
-  (Point 0.0 (Hex.height h / 2.0))
-  [ Point (Hex.width h / 2.0) (Hex.side h / 2.0)
-  , Point (Hex.width h / 2.0) (-Hex.side h / 2.0)
-  , Point 0.0 (-Hex.height h / 2.0)
-  , Point (-Hex.width h / 2.0) (-Hex.side h / 2.0)
-  , Point (-Hex.width h / 2.0) (Hex.side h / 2.0)
-  ]
-
 svgGridPoints :: Hexagon -> IPoint -> NonEmptyArray NPoint
-svgGridPoints h pos = add (Hex.gridPoint h pos) <$> svgPoints h
+svgGridPoints h pos = add (Hex.gridPoint h pos) <$> Hex.vertices Tall h
 
 floodFill :: IPoint -> NonEmptyArray IPoint -> NonEmptyArray IPoint
 floodFill start filled =

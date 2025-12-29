@@ -1,40 +1,67 @@
 module Hexagon
-  ( Hexagon
-  , fromWidth
+  ( Hexagon(..)
+  , Orientation(..)
+  , circ
   , side
-  , cap
-  , height
-  , width
+  , apo
+  , ratio
   , gridPoint
-  -- , gridPointB
+  , vertices
   ) where
 
 import MasonPrelude
 
+import Data.Array.NonEmpty (NonEmptyArray, cons')
 import Data.Number (cos, pi)
 import Point (IPoint, NPoint, Point(..))
 
--- a hexagon characterized by it's inscribed diameter
-newtype Hexagon = Hexagon Number
+data Hexagon = Circ Number
 
-fromWidth :: Number -> Hexagon
-fromWidth = Hexagon
+ratio :: Number
+ratio = 1.0 / cos (pi / 6.0)
+
+apo :: Hexagon -> Number
+apo (Circ r) = r / ratio
+
+circ :: Hexagon -> Number
+circ (Circ r) = r
 
 side :: Hexagon -> Number
-side (Hexagon w) = w / 2.0 / cos (pi / 6.0)
-
-cap :: Hexagon -> Number
-cap h = side h / 2.0
-
-height :: Hexagon -> Number
-height h = 2.0 * side h
-
-width :: Hexagon -> Number
-width = coerce
+side = circ
 
 gridPoint :: Hexagon -> IPoint -> NPoint
 gridPoint h (Point x y) =
   Point
-    (width h / 2.0 + width h * toNumber (x - 1) + width h / 2.0 * toNumber (y - 1))
-    (height h / 2.0 + (cap h + side h) * toNumber (y - 1))
+    (apo h + 2.0 * apo h * toNumber (x - 1) + apo h * toNumber (y - 1))
+    (circ h + (1.5 * side h) * toNumber (y - 1))
 
+data Orientation
+  = Tall
+  | Wide
+
+vertices :: Orientation -> Hexagon -> NonEmptyArray NPoint
+vertices orientation h =
+  let
+    a = apo h
+    r = circ h
+    s = side h / 2.0
+  in
+    case orientation of
+      Tall ->
+        cons'
+          (Point 0.0 r)
+          [ Point a s
+          , Point a (-s)
+          , Point 0.0 (-r)
+          , Point (-a) (-s)
+          , Point (-a) s
+          ]
+      Wide ->
+        cons'
+          (Point r 0.0)
+          [ Point s a
+          , Point (-s) a
+          , Point (-r) 0.0
+          , Point (-s) (-a)
+          , Point s (-a)
+          ]
