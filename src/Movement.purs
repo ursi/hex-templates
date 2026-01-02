@@ -56,6 +56,11 @@ points (AbsoluteMovement m) = case m of
   Bridge { destination, doubleThreat: p1 /\ p2 } ->
     cons' destination [ p1, p2 ]
 
+doubleThreat :: AbsoluteMovement -> Array IPoint
+doubleThreat (AbsoluteMovement m) = case m of
+  Single _ -> []
+  Bridge { doubleThreat: p1 /\ p2 } -> [ p1, p2 ]
+
 newtype AbsoluteMovement = AbsoluteMovement RelativeMovement
 
 clockMove :: Clock -> RelativeMovement
@@ -94,10 +99,10 @@ clockMove = case _ of
 applyMovement :: IPoint -> RelativeMovement -> AbsoluteMovement
 applyMovement p m = AbsoluteMovement case m of
   Single p' -> Single $ p + p'
-  Bridge { destination, doubleThreat } ->
+  Bridge b ->
     Bridge
-      { destination: p + destination
-      , doubleThreat: (p /\ p) + doubleThreat
+      { destination: p + b.destination
+      , doubleThreat: (p /\ p) + b.doubleThreat
       }
 
 clockPath
@@ -127,60 +132,67 @@ clockPath start = map snd <. foldl
               pure $ pos /\ points'
             else if y < 1 then
               throwError "you are below the edge"
-            else case c of
-              C4 ->
-                if y == 2 then
-                  let
-                    am = applyMovement pos $ clockMove C5
-                  in
-                    pure $ start /\ (points' <> points am)
-                else do
-                  toEdge <- clockPath pos (cons' (Step C4) [ ToEdge C4 ])
+            else
+              let
+                adjacentStep :: Clock -> m (IPoint /\ NonEmptyArray IPoint)
+                adjacentStep clock = do
+                  let am = applyMovement pos $ clockMove clock
+                  toEdge <- clockPath (dest am) (pure $ ToEdge clock)
                   pure $ start /\ (points' <> toEdge)
-              C5 ->
-                let
-                  am = applyMovement pos $ clockMove C5
-                in
-                  do
-                    toEdge <- clockPath (dest am) (pure $ ToEdge C5)
-                    pure $ start /\ (points' <> points am <> toEdge)
-              C6 ->
-                if y == 2 then
-                  let
-                    am5 = applyMovement pos $ clockMove C5
-                    am7 = applyMovement pos $ clockMove C7
-                  in
-                    pure $ start /\ (points' <> points am5 <> points am7)
-                else do
-                  toEdge <- clockPath pos (cons' (Step C6) [ ToEdge C6 ])
-                  pure $ start /\ (points' <> toEdge)
-              C7 ->
-                let
-                  am = applyMovement pos $ clockMove C7
-                in
-                  do
-                    toEdge <- clockPath (dest am) (pure $ ToEdge C7)
-                    pure $ start /\ (points' <> points am <> toEdge)
-              C8 ->
-                if y == 2 then
-                  let
-                    am = applyMovement pos $ clockMove C7
-                  in
-                    pure $ start /\ (points' <> points am)
-                else do
-                  toEdge <- clockPath pos (cons' (Step C8) [ ToEdge C8 ])
-                  pure $ start /\ (points' <> toEdge)
-              _ -> throwError $ "`" <> show move <> "` is an invlid move"
+
+                bridgeStep :: Clock -> m (IPoint /\ NonEmptyArray IPoint)
+                bridgeStep clock = do
+                  let am = applyMovement pos $ clockMove clock
+                  toEdge <- clockPath (dest am) (pure $ ToEdge clock)
+                  pure $ Tuple
+                    start
+                    (Ne.appendArray points' (doubleThreat am) <> toEdge)
+              in
+                case c of
+                  C4 ->
+                    if y == 2 then
+                      let
+                        am = applyMovement pos $ clockMove C5
+                      in
+                        pure $ start /\ (points' <> points am)
+                    else
+                      bridgeStep C4
+                  C5 -> adjacentStep C5
+                  C6 ->
+                    if y == 2 then
+                      let
+                        am5 = applyMovement pos $ clockMove C5
+                        am7 = applyMovement pos $ clockMove C7
+                      in
+                        pure $ start /\ (points' <> points am5 <> points am7)
+                    else
+                      bridgeStep C6
+                  C7 -> adjacentStep C7
+                  C8 ->
+                    if y == 2 then
+                      let
+                        am = applyMovement pos $ clockMove C7
+                      in
+                        pure $ start /\ (points' <> points am)
+                    else do
+                      bridgeStep C8
+                  _ -> throwError $ "`" <> show move <> "` is an invlid move"
         ToZiggurat c ->
           let
             y = Point.y pos
             f c1 c2 c3 =
               if y == 4 then do
-                toZig <- clockPath pos (cons' (Step c2) [ ToEdge c3 ])
-                pure $ start /\ (points' <> toZig)
+                let am = applyMovement pos $ clockMove c2
+                toZig <- clockPath (dest am) (pure $ ToEdge c3)
+                pure $ Tuple
+                  start
+                  (Ne.appendArray points' (doubleThreat am) <> toZig)
               else do
-                toZig <- clockPath pos (cons' (Step c1) [ ToZiggurat c1 ])
-                pure $ start /\ (points' <> toZig)
+                let am = applyMovement pos $ clockMove c1
+                toZig <- clockPath (dest am) (pure $ ToZiggurat c1)
+                pure $ Tuple
+                  start
+                  (Ne.appendArray points' (doubleThreat am) <> toZig)
           in
             if y < 4 then
               throwError $ "you cannot ziggurat to the edge from height " <> show y
@@ -193,7 +205,7 @@ clockPath start = map snd <. foldl
         Reset ->
           pure $ start /\ points'
   )
-  (pure (start /\ (cons' start [])))
+  (pure (start /\ pure start))
 
 movesParser :: Parser (NonEmptyArray Move)
 movesParser = Ne.fromFoldable1 <$>
