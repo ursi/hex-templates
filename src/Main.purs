@@ -1,13 +1,14 @@
 module Main where
 
-import MasonPrelude
+import Lude
 
 import Data.Array as Array
-import Data.Array.NonEmpty (NonEmptyArray, cons', (..))
+import Data.Array.NonEmpty ((..))
 import Data.Array.NonEmpty as Ne
 import Data.Bifunctor (lmap)
 import Data.Foldable (elem)
 import Data.Semigroup.Foldable (class Foldable1, fold1, foldl1)
+import Debug as Debug
 import Deku.Core (Nut, fixed)
 import Deku.DOM (text_)
 import Deku.DOM as D
@@ -25,21 +26,27 @@ import Hexagon (Hexagon(Circ), Orientation(Tall))
 import Hexagon as Hex
 import Magic (magic)
 import Movement
-  ( Clock(C11, C9, C7, C5, C3, C1)
+  ( Clock(C11, C9, C7, C5, C4, C3, C1)
+  , Endpoints
+  , Move(Step)
   , applyMovement
+  , clockDest
   , clockMove
   , clockPath
   , dest
+  , edge
+  , mkEndpoints
+  , movements
   , movesParser
+  , unEndpoints
   )
 import Point (Box, IPoint, NPoint, Point(..))
 import Point as Point
+import Stone (Connected(..), Stone(..), StoneMoves(..), placeStone)
+import Stone as Stone
 import StringParser (printParserError, runParser)
 import Web.HTML.HTMLElement (focus)
 import Web.HTML.HTMLInputElement as HTMLInputElem
-
-hexSvgId :: String
-hexSvgId = "hexagon"
 
 main :: Effect Unit
 main = do
@@ -49,17 +56,59 @@ main = do
       , stepsStr: useState "4.7."
       }
     let
-      hexagonsP = lift2
-        ( \height stepsStr -> do
-            moves <- lmap printParserError (runParser movesParser stepsStr)
-            points <- clockPath (Point 1 height) moves
-            pure $ fill $ Ne.nub points
+      svgDataP :: Poll (Either String SvgData)
+      svgDataP = lift2
+        ( \height stepsStr ->
+            let
+              start = Point 1 height
+            in
+              if stepsStr == "" then do
+                pure
+                  { endpoints: mkEndpoints start start
+                  , hexPoints: pure start
+                  , stones:
+                      cons'
+                        (Stone.connected start)
+                        [ Stone.disconnected $ Point 1 1 ]
+                  }
+              else do
+                moves <- lmap printParserError (runParser movesParser stepsStr)
+                points <- clockPath start moves
+                endpoints <- case Debug.log (movements moves) of
+                  [ m ] -> do
+                    endpoint <- clockDest start m
+                    pure $ mkEndpoints start endpoint
+                  [ m1, m2 ] -> do
+                    endpoint1 <- clockDest start m1
+                    endpoint2 <- clockDest start m2
+                    pure $ mkEndpoints endpoint1 endpoint2
+                  ms ->
+                    throwError
+                      $ "You cannot have more than 2 movements, and you have "
+                      <> show (Array.length ms)
+                      <> "."
+                stones' <- pure <$>
+                  ( placeStone start
+                      $ StoneMoves (Connected false)
+                      $ pure
+                      $ Step C4
+                  )
+                let stones = Ne.cons (Stone.connected start) stones'
+                pure
+                  { endpoints
+                  , hexPoints: fill $
+                      { endpoints
+                      , hexPoints: Ne.nub points
+                      , stones
+                      }
+                  , stones
+                  }
         )
         poll.height
         poll.stepsStr
     D.div [ A.style_ "height: 100vh;" ]
       [ inputs set poll
-      , hexagonSvgs hexagonsP
+      , hexagonSvgs svgDataP
       ]
   where
   inputs set poll =
@@ -80,31 +129,67 @@ main = do
       , D.input [ A.value poll.stepsStr, L.valueOn_ L.input set.stepsStr ] []
       ]
 
-hexagonSvgs :: Poll (Either String (NonEmptyArray IPoint)) -> Nut
-hexagonSvgs hexagonsP =
-  hexagonsP <#~> case _ of
-    Right hexagons ->
-      Svg.svg
-        [ SvgA.width_ "100%"
-        , SvgA.height_ "100%"
-        , SvgA.viewBox_ $ makeViewBox hexagons
-        , SvgA.transform_ "scale(1,-1)"
-        ]
-        [ Svg.defs_
-            [ Svg.polygon
-                [ SvgA.id_ hexSvgId
-                , SvgA.strokeWidth_ $ show strokeWidth
-                , SvgA.stroke_ "blue"
-                , SvgA.fill_ "red"
-                , SvgA.points_
-                    $ Hex.vertices Tall hexagon
-                    # map (\(Point x y) -> show x <> "," <> show y)
-                    # intercalate " "
-                ]
-                []
-            ]
-        , fixed $ Array.fromFoldable $ placeHexagon <$> hexagons
-        ]
+type SvgData =
+  { endpoints :: Endpoints
+  , hexPoints :: NonEmptyArray IPoint
+  , stones :: NonEmptyArray Stone
+  }
+
+hexagonSvgs :: Poll (Either String SvgData) -> Nut
+hexagonSvgs svgDataP =
+  svgDataP <#~> case _ of
+    Right { endpoints, hexPoints, stones } ->
+      let
+        edgePoints = edge endpoints
+        allPoints = hexPoints <> edgePoints <> (Stone.point <$> stones)
+      in
+        Svg.svg
+          [ SvgA.width_ "100%"
+          , SvgA.height_ "100%"
+          , SvgA.viewBox_ $ makeViewBox allPoints
+          , SvgA.transform_ "scale(1,-1)"
+          ]
+          [ Svg.defs_
+              [ Svg.polygon
+                  [ SvgA.id_ hexSvgId
+                  , SvgA.strokeWidth_ $ show strokeWidth
+                  , SvgA.stroke_ "blue"
+                  , SvgA.fill_ "red"
+                  , SvgA.points_
+                      $ Hex.vertices Tall hexagon
+                      # map (\(Point x y) -> show x <> "," <> show y)
+                      # intercalate " "
+                  ]
+                  []
+              , Svg.polygon
+                  [ SvgA.id_ edgeId
+                  , SvgA.strokeWidth_ $ show strokeWidth
+                  , SvgA.stroke_ "white"
+                  , SvgA.fill_ "black"
+                  , SvgA.points_
+                      $ Hex.vertices Tall hexagon
+                      # map (\(Point x y) -> show x <> "," <> show y)
+                      # intercalate " "
+                  ]
+                  []
+              , Svg.g [ SvgA.id_ connectedStoneId ]
+                  [ Svg.circle
+                      [ SvgA.fill_ "black"
+                      , SvgA.r_ $ show $ 0.90 * Hex.apo hexagon
+                      ]
+                      []
+                  ]
+              , Svg.circle
+                  [ SvgA.id_ disconnectedStoneId
+                  , SvgA.fill_ "white"
+                  , SvgA.r_ $ show $ 0.90 * Hex.apo hexagon
+                  ]
+                  []
+              ]
+          , fixed $ Array.fromFoldable $ placeHexagon <$> hexPoints
+          , fixed $ Array.fromFoldable $ placeEdge <$> edgePoints
+          , fixed $ Array.fromFoldable $ placeStones <$> stones
+          ]
     Left error -> D.div
       [ A.style_
           """
@@ -119,6 +204,18 @@ hexagonSvgs hexagonsP =
   hexagon = Circ 1.0
   strokeWidth = 0.05
 
+  hexSvgId :: String
+  hexSvgId = "hexagon"
+
+  edgeId :: String
+  edgeId = "edge"
+
+  connectedStoneId :: String
+  connectedStoneId = "connected-stone"
+
+  disconnectedStoneId :: String
+  disconnectedStoneId = "stone"
+
   placeHexagon :: IPoint -> Nut
   placeHexagon hexGridPos =
     let
@@ -126,6 +223,42 @@ hexagonSvgs hexagonsP =
     in
       Svg.use
         [ SvgA.href_ $ "#" <> hexSvgId
+        , SvgA.transform_
+            $ "translate("
+            <> show (Point.x point)
+            <> ","
+            <> show (Point.y point)
+            <> ")"
+        ]
+        []
+
+  placeEdge :: IPoint -> Nut
+  placeEdge hexGridPos =
+    let
+      point = Hex.gridPoint hexagon hexGridPos
+    in
+      Svg.use
+        [ SvgA.href_ $ "#" <> edgeId
+        , SvgA.transform_
+            $ "translate("
+            <> show (Point.x point)
+            <> ","
+            <> show (Point.y point)
+            <> ")"
+        ]
+        []
+
+  placeStones :: Stone -> Nut
+  placeStones (Stone con pos) =
+    let
+      point = Hex.gridPoint hexagon pos
+    in
+      Svg.use
+        [ SvgA.href_ $ "#" <>
+            if coerce con then
+              connectedStoneId
+            else
+              disconnectedStoneId
         , SvgA.transform_
             $ "translate("
             <> show (Point.x point)
@@ -163,8 +296,8 @@ hexagonSvgs hexagonsP =
     svgGridPoints :: IPoint -> NonEmptyArray NPoint
     svgGridPoints pos = add (Hex.gridPoint hexagon pos) <$> Hex.vertices Tall hexagon
 
-fill :: NonEmptyArray IPoint -> NonEmptyArray IPoint
-fill hexagons =
+fill :: SvgData -> NonEmptyArray IPoint
+fill { endpoints, hexPoints } =
   case isFinished of
     Just ones ->
       let
@@ -177,7 +310,7 @@ fill hexagons =
           let
             next = start + Point i 0
           in
-            if not elem next hexagons then
+            if not elem next hexPoints then
               Just next
             else if next /= finish then
               go $ i + 1
@@ -185,21 +318,22 @@ fill hexagons =
               Nothing
       in
         case go 1 of
-          Just ffStart -> floodFill ffStart (hexagons <> bottomBorder)
+          Just ffStart -> floodFill ffStart (hexPoints <> bottomBorder)
             # Ne.filter ((/=) 0 <. Point.y)
             # Ne.fromArray
             # case _ of
                 Just a -> a
                 Nothing -> unsafeThrow "something has gone very wrong"
-          Nothing -> hexagons
-    Nothing -> hexagons
+          Nothing -> hexPoints
+    Nothing -> hexPoints
   where
-  -- the template touches the ground at at least 2 points
   isFinished :: Maybe (NonEmptyArray IPoint)
   isFinished = do
-    { head, tail } <- Array.uncons $ Ne.filter ((==) 1 <. Point.y) hexagons
-    if tail /= [] then
-      pure $ cons' head tail
+    let
+      bottom = Ne.filter ((==) 1 <. Point.y) hexPoints
+      e1 /\ e2 = unEndpoints endpoints
+    if elem e1 bottom && elem e2 bottom then
+      Ne.fromArray bottom
     else
       Nothing
 
@@ -220,54 +354,8 @@ fill hexagons =
     continue c =
       floodFill (dest $ applyMovement start $ clockMove c)
 
--- works but is exponential because bridges introduce 2 equivalent paths
--- I could:
--- trim paths that are euqal except for a bridge
---   I think I just need to check if they only every have one difference in a row
---   and if they do, I can trim one of them
---     the problem is, it takes two steps to figure that out, and my algorithm only sees
---     one step apart
---       perhaps I need to switch to keeping the whole list of paths in each step,
---       and expanding it. that way I can trim as I go
--- change the bridge to only do the outside (would't work for 6s)
--- change the moves part to be two distinct parts. this seems like it fixes a lot of my problems
-_bottom :: NonEmptyArray IPoint -> NonEmptyArray IPoint
-_bottom hexagons =
-  let
-    side1 = minWith Point.y hexagons
-    side2 = getFarthest side1
-  in
-    cons' side1 (pure side2)
-  where
-  getFarthest :: IPoint -> IPoint
-  getFarthest start = Ne.last $ go (pure start)
-    where
-    go :: NonEmptyArray IPoint -> NonEmptyArray IPoint
-    go path =
-      ( cons'
-          (step C1)
-          [ step C3
-          , step C5
-          , step C7
-          , step C9
-          , step C11
-          ]
-      )
-        # maxWith Ne.length
-      where
-      step :: Clock -> NonEmptyArray IPoint
-      step c =
-        let
-          nextStep = dest $ applyMovement (Ne.last path) $ clockMove c
-        in
-          if elem nextStep hexagons && not elem nextStep path then
-            go $ Ne.snoc path nextStep
-          else
-            path
-
 minWith :: ∀ f a b. Foldable1 f => Ord b => (a -> b) -> f a -> a
 minWith f = foldl1 (\acc a -> if f a < f acc then a else acc)
 
 maxWith :: ∀ f a b. Foldable1 f => Ord b => (a -> b) -> f a -> a
 maxWith f = foldl1 (\acc a -> if f a > f acc then a else acc)
-

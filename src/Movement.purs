@@ -3,18 +3,24 @@ module Movement
   , Move(..)
   , RelativeMovement(..)
   , AbsoluteMovement(..)
+  , Endpoints
   , applyMovement
   , dest
+  , edge
   , points
   , clockMove
+  , clockDest
   , clockPath
+  , mkEndpoints
   , movesParser
+  , movements
+  , unEndpoints
   ) where
 
-import MasonPrelude
+import Lude
 
-import Control.Monad.Error.Class (class MonadError, throwError)
-import Data.Array.NonEmpty (NonEmptyArray, cons')
+import Data.Array as Array
+import Data.Array.NonEmpty (snoc', (..))
 import Data.Array.NonEmpty as Ne
 import Point (IPoint, Point(..))
 import Point as Point
@@ -23,6 +29,7 @@ import StringParser as Sp
 
 data Clock = C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C9 | C10 | C11 | C12
 
+derive instance Eq Clock
 derive instance Generic Clock _
 instance Show Clock where
   show = genericShow
@@ -33,6 +40,7 @@ data Move
   | ToZiggurat Clock
   | Reset
 
+derive instance Eq Move
 derive instance Generic Move _
 
 instance Show Move where
@@ -54,7 +62,7 @@ points :: AbsoluteMovement -> NonEmptyArray IPoint
 points (AbsoluteMovement m) = case m of
   Single p -> pure p
   Bridge { destination, doubleThreat: p1 /\ p2 } ->
-    cons' destination [ p1, p2 ]
+    snoc' [ p1, p2 ] destination
 
 doubleThreat :: AbsoluteMovement -> Array IPoint
 doubleThreat (AbsoluteMovement m) = case m of
@@ -207,6 +215,49 @@ clockPath start = map snd <. foldl
   )
   (pure (start /\ pure start))
 
+clockDest
+  :: ∀ @m
+   . MonadError String m
+  => IPoint
+  -> NonEmptyArray Move
+  -> m IPoint
+clockDest = map Ne.last <.. clockPath
+
+newtype Endpoints = Endpoints (IPoint /\ IPoint)
+
+unEndpoints :: Endpoints -> IPoint /\ IPoint
+unEndpoints = coerce
+
+mkEndpoints :: IPoint -> IPoint -> Endpoints
+mkEndpoints p1 p2 =
+  let
+    epl = Ne.sortBy endpointSort $ cons' p1 [ p2 ]
+  in
+    Endpoints $ Ne.head epl /\ Ne.last epl
+
+endpointSort :: IPoint -> IPoint -> Ordering
+endpointSort p1 p2 =
+  let
+    by5 = compare (Point.x $ _5toEdge p1) (Point.x $ _5toEdge p2)
+  in
+    if by5 == EQ then
+      compare (Point.x $ _7toEdge p1) (Point.x $ _7toEdge p2)
+    else
+      by5
+
+edge :: Endpoints -> NonEmptyArray IPoint
+edge (Endpoints (e1 /\ e2)) = do
+  Point.x (_7toEdge e1) .. (Point.x (_5toEdge e2) + 1)
+    <#> (Point ~$ 0)
+
+_5toEdge :: IPoint -> IPoint
+_5toEdge p = unsafePartial case clockDest p $ pure $ ToEdge C5 of
+  Right e -> e
+
+_7toEdge :: IPoint -> IPoint
+_7toEdge p = unsafePartial case clockDest p $ pure $ ToEdge C5 of
+  Right e -> e
+
 movesParser :: Parser (NonEmptyArray Move)
 movesParser = Ne.fromFoldable1 <$>
   Sp.many1 (Sp.try toEdgeParser <|> (Step <$> clockParser) <|> reset)
@@ -237,3 +288,29 @@ movesParser = Ne.fromFoldable1 <$>
 
   reset :: Parser Move
   reset = Sp.char '*' $> Reset
+
+movements :: NonEmptyArray Move -> Array (NonEmptyArray Move)
+movements moves =
+  foldl
+    ( \(movements' /\ current) move ->
+        if boundary move then
+          let
+            newMovement = Ne.prependArray current $ pure move
+          in
+            Array.snoc movements' newMovement /\ []
+        else
+          movements' /\ Array.snoc current move
+    )
+    ([] /\ [])
+    moves
+    # \(movements' /\ maybeMovement) ->
+        case Ne.fromArray maybeMovement of
+          Just movement -> Array.snoc movements' movement
+          Nothing -> movements'
+  where
+  boundary :: Move -> Boolean
+  boundary = case _ of
+    ToEdge _ -> true
+    ToZiggurat _ -> true
+    Reset -> true
+    Step _ -> false
