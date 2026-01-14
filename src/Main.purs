@@ -30,14 +30,14 @@ import Movement
   , Endpoints
   , Move(Step)
   , applyMovement
-  , clockDest
   , clockMove
-  , clockPath
   , dest
   , edge
   , mkEndpoints
   , movements
+  , movesDest
   , movesParser
+  , movesPath
   , unEndpoints
   )
 import Point (Box, IPoint, NPoint, Point(..))
@@ -73,14 +73,14 @@ main = do
                   }
               else do
                 moves <- lmap printParserError (runParser movesParser stepsStr)
-                points <- clockPath start moves
+                points <- movesPath start moves
                 endpoints <- case Debug.log (movements moves) of
                   [ m ] -> do
-                    endpoint <- clockDest start m
+                    endpoint <- movesDest start m
                     pure $ mkEndpoints start endpoint
                   [ m1, m2 ] -> do
-                    endpoint1 <- clockDest start m1
-                    endpoint2 <- clockDest start m2
+                    endpoint1 <- movesDest start m1
+                    endpoint2 <- movesDest start m2
                     pure $ mkEndpoints endpoint1 endpoint2
                   ms ->
                     throwError

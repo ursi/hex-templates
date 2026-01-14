@@ -10,7 +10,7 @@ module Stone
 
 import Lude
 
-import Movement (Move, clockDest)
+import Movement (Move, movesDest)
 import Point (IPoint)
 
 newtype Connected = Connected Boolean
@@ -34,7 +34,7 @@ placeStone
   -> StoneMoves
   -> m Stone
 placeStone start (StoneMoves con moves) =
-  Stone con <$> clockDest start moves
+  Stone con <$> movesDest start moves
 
 point :: Stone -> IPoint
 point (Stone _ p) = p

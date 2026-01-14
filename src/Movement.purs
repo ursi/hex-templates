@@ -9,9 +9,9 @@ module Movement
   , edge
   , points
   , clockMove
-  , clockDest
-  , clockPath
   , mkEndpoints
+  , movesDest
+  , movesPath
   , movesParser
   , movements
   , unEndpoints
@@ -114,13 +114,13 @@ applyMovement p m = AbsoluteMovement case m of
       , doubleThreat: (p /\ p) + b.doubleThreat
       }
 
-clockPath
+movesPath
   :: ∀ @m
    . MonadError String m
   => IPoint
   -> NonEmptyArray Move
   -> m (NonEmptyArray IPoint)
-clockPath start = map snd <. foldl
+movesPath start = map snd <. foldl
   ( \acc move -> do
       pos /\ points' <- acc
       case move of
@@ -146,13 +146,13 @@ clockPath start = map snd <. foldl
                 adjacentStep :: Clock -> m (IPoint /\ NonEmptyArray IPoint)
                 adjacentStep clock = do
                   let am = applyMovement pos $ clockMove clock
-                  toEdge <- clockPath (dest am) (pure $ ToEdge clock)
+                  toEdge <- movesPath (dest am) (pure $ ToEdge clock)
                   pure $ start /\ (points' <> toEdge)
 
                 bridgeStep :: Clock -> m (IPoint /\ NonEmptyArray IPoint)
                 bridgeStep clock = do
                   let am = applyMovement pos $ clockMove clock
-                  toEdge <- clockPath (dest am) (pure $ ToEdge clock)
+                  toEdge <- movesPath (dest am) (pure $ ToEdge clock)
                   pure $ Tuple
                     start
                     (Ne.appendArray points' (doubleThreat am) <> toEdge)
@@ -192,13 +192,13 @@ clockPath start = map snd <. foldl
             f c1 c2 c3 =
               if y == 4 then do
                 let am = applyMovement pos $ clockMove c2
-                toZig <- clockPath (dest am) (pure $ ToEdge c3)
+                toZig <- movesPath (dest am) (pure $ ToEdge c3)
                 pure $ Tuple
                   start
                   (Ne.appendArray points' (doubleThreat am) <> toZig)
               else do
                 let am = applyMovement pos $ clockMove c1
-                toZig <- clockPath (dest am) (pure $ ToZiggurat c1)
+                toZig <- movesPath (dest am) (pure $ ToZiggurat c1)
                 pure $ Tuple
                   start
                   (Ne.appendArray points' (doubleThreat am) <> toZig)
@@ -216,13 +216,13 @@ clockPath start = map snd <. foldl
   )
   (pure (start /\ pure start))
 
-clockDest
+movesDest
   :: ∀ @m
    . MonadError String m
   => IPoint
   -> NonEmptyArray Move
   -> m IPoint
-clockDest = map Ne.last <.. clockPath
+movesDest = map Ne.last <.. movesPath
 
 newtype Endpoints = Endpoints (IPoint /\ IPoint)
 
@@ -252,11 +252,11 @@ edge (Endpoints (e1 /\ e2)) = do
     <#> (Point ~$ 0)
 
 _5toEdge :: IPoint -> IPoint
-_5toEdge p = unsafePartial case clockDest p $ pure $ ToEdge C5 of
+_5toEdge p = unsafePartial case movesDest p $ pure $ ToEdge C5 of
   Right e -> e
 
 _7toEdge :: IPoint -> IPoint
-_7toEdge p = unsafePartial case clockDest p $ pure $ ToEdge C5 of
+_7toEdge p = unsafePartial case movesDest p $ pure $ ToEdge C5 of
   Right e -> e
 
 movesParser :: Parser (NonEmptyArray Move)
