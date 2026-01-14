@@ -22,6 +22,7 @@ import Lude
 import Data.Array as Array
 import Data.Array.NonEmpty (snoc', (..))
 import Data.Array.NonEmpty as Ne
+import Data.Foldable (oneOf)
 import Point (IPoint, Point(..))
 import Point as Point
 import StringParser (Parser)
@@ -259,8 +260,13 @@ _7toEdge p = unsafePartial case clockDest p $ pure $ ToEdge C5 of
   Right e -> e
 
 movesParser :: Parser (NonEmptyArray Move)
-movesParser = Ne.fromFoldable1 <$>
-  Sp.many1 (Sp.try toEdgeParser <|> (Step <$> clockParser) <|> reset)
+movesParser = do
+  moves <- Ne.fromFoldable1 <$>
+    Sp.many1 (Sp.try toEdgeParser <|> (Step <$> clockParser) <|> reset)
+  oneOf
+    [ Sp.char 's' $> reflect moves
+    , pure moves
+    ]
   where
   clockParser :: Parser Clock
   clockParser =
@@ -289,6 +295,37 @@ movesParser = Ne.fromFoldable1 <$>
   reset :: Parser Move
   reset = Sp.char '*' $> Reset
 
+  reflect :: NonEmptyArray Move -> NonEmptyArray Move
+  reflect moves =
+    let
+      reflected = reflectMove <$> moves
+    in
+      if boundary (Ne.last moves) then
+        moves <> reflected
+      else
+        Ne.snoc moves Reset <> reflected
+    where
+    reflectMove :: Move -> Move
+    reflectMove = case _ of
+      Step c -> Step $ reflectClock c
+      ToEdge c -> ToEdge $ reflectClock c
+      ToZiggurat c -> ToZiggurat $ reflectClock c
+      m -> m
+      where
+      reflectClock :: Clock -> Clock
+      reflectClock = case _ of
+        C1 -> C11
+        C2 -> C10
+        C3 -> C9
+        C4 -> C8
+        C5 -> C7
+        C7 -> C5
+        C8 -> C4
+        C9 -> C3
+        C10 -> C2
+        C11 -> C1
+        c -> c
+
 movements :: NonEmptyArray Move -> Array (NonEmptyArray Move)
 movements moves =
   foldl
@@ -307,10 +344,10 @@ movements moves =
         case Ne.fromArray maybeMovement of
           Just movement -> Array.snoc movements' movement
           Nothing -> movements'
-  where
-  boundary :: Move -> Boolean
-  boundary = case _ of
-    ToEdge _ -> true
-    ToZiggurat _ -> true
-    Reset -> true
-    Step _ -> false
+
+boundary :: Move -> Boolean
+boundary = case _ of
+  ToEdge _ -> true
+  ToZiggurat _ -> true
+  Reset -> true
+  Step _ -> false
