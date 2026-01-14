@@ -1,19 +1,19 @@
 module Movement
-  ( Clock(..)
+  ( AbsoluteMovement(..)
+  , Clock(..)
+  , Endpoints
   , Move(..)
   , RelativeMovement(..)
-  , AbsoluteMovement(..)
-  , Endpoints
   , applyMovement
+  , clockMove
   , dest
   , edge
-  , points
-  , clockMove
   , mkEndpoints
-  , movesDest
-  , movesPath
-  , movesParser
   , movements
+  , movesDest
+  , movesParser
+  , movesPath
+  , points
   , unEndpoints
   ) where
 
