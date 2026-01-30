@@ -8,7 +8,6 @@ import Data.Array.NonEmpty as Ne
 import Data.Bifunctor (lmap)
 import Data.Foldable (elem)
 import Data.Semigroup.Foldable (class Foldable1, fold1, foldl1)
-import Debug as Debug
 import Deku.Core (Nut, fixed)
 import Deku.DOM (text_)
 import Deku.DOM as D
@@ -28,7 +27,6 @@ import Magic (magic)
 import Movement
   ( Clock(C11, C9, C7, C5, C4, C3, C1)
   , Endpoints
-  , Move(Step)
   , applyMovement
   , clockMove
   , dest
@@ -42,7 +40,7 @@ import Movement
   )
 import Point (Box, IPoint, NPoint, Point(..))
 import Point as Point
-import Stone (Connected(..), Stone(..), StoneMoves(..), placeStone)
+import Stone (Stone)
 import Stone as Stone
 import StringParser (printParserError, runParser)
 import Web.HTML.HTMLElement (focus)
@@ -74,7 +72,7 @@ main = do
               else do
                 moves <- lmap printParserError (runParser movesParser stepsStr)
                 points <- movesPath start moves
-                endpoints <- case Debug.log (movements moves) of
+                endpoints <- case movements moves of
                   [ m ] -> do
                     endpoint <- movesDest start m
                     pure $ mkEndpoints start endpoint
@@ -87,20 +85,26 @@ main = do
                       $ "You cannot have more than 2 movements, and you have "
                       <> show (Array.length ms)
                       <> "."
-                stones' <- pure <$>
-                  ( placeStone start
-                      $ StoneMoves (Connected false)
-                      $ pure
-                      $ Step C4
-                  )
-                let stones = Ne.cons (Stone.connected start) stones'
+                stones <- Stone.placeStones start $
+                  cons'
+                    { reset: false
+                    , connected: false
+                    , moves: pure C4
+                    }
+                    [ { reset: true
+                      , connected: false
+                      , moves: cons' (C7) [ C7 ]
+                      }
+                    ]
+
                 pure
                   { endpoints
-                  , hexPoints: fill $
-                      { endpoints
-                      , hexPoints: Ne.nub points
-                      , stones
-                      }
+                  , hexPoints:
+                      fill
+                        { endpoints
+                        , hexPoints: Ne.nub points
+                        , stones
+                        }
                   , stones
                   }
         )
@@ -141,7 +145,7 @@ hexagonSvgs svgDataP =
     Right { endpoints, hexPoints, stones } ->
       let
         edgePoints = edge endpoints
-        allPoints = hexPoints <> edgePoints <> (Stone.point <$> stones)
+        allPoints = hexPoints <> edgePoints <> (stones <#> _.pos)
       in
         Svg.svg
           [ SvgA.width_ "100%"
@@ -249,13 +253,13 @@ hexagonSvgs svgDataP =
         []
 
   placeStones :: Stone -> Nut
-  placeStones (Stone con pos) =
+  placeStones { connected, pos } =
     let
       point = Hex.gridPoint hexagon pos
     in
       Svg.use
         [ SvgA.href_ $ "#" <>
-            if coerce con then
+            if connected then
               connectedStoneId
             else
               disconnectedStoneId
