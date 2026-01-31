@@ -15,18 +15,17 @@ import Deku.DOM.Attributes as A
 import Deku.DOM.Listeners as L
 import Deku.DOM.SVG as Svg
 import Deku.DOM.SVG.Attributes as SvgA
-import Deku.DOM.Self (selfT_)
 import Deku.Do as Deku
 import Deku.Hooks (useState, (<#~>))
 import Deku.Toplevel (runInBody)
-import Effect.Timer (setTimeout)
 import FRP.Poll (Poll)
 import Hexagon (Hexagon(Circ), Orientation(Tall))
 import Hexagon as Hex
 import Magic (magic)
 import Movement
-  ( Clock(C11, C9, C7, C5, C4, C3, C1)
+  ( Clock(C11, C9, C7, C5, C3, C1)
   , Endpoints
+  , Move
   , applyMovement
   , clockMove
   , dest
@@ -40,76 +39,53 @@ import Movement
   )
 import Point (Box, IPoint, NPoint, Point(..))
 import Point as Point
-import Stone (Stone)
+import Stone (Stone, stonesParser)
 import Stone as Stone
-import StringParser (printParserError, runParser)
-import Web.HTML.HTMLElement (focus)
-import Web.HTML.HTMLInputElement as HTMLInputElem
+import StringParser (Parser, printParserError, runParser)
+import StringParser as Sp
 
 main :: Effect Unit
 main = do
   void $ runInBody Deku.do
-    set /\ poll <- magic
-      { height: useState 3
-      , stepsStr: useState "4.7."
-      }
+    set /\ poll <- magic { stepsStr: useState "3-4.7." }
     let
       svgDataP :: Poll (Either String SvgData)
-      svgDataP = lift2
-        ( \height stepsStr ->
-            let
-              start = Point 1 height
-            in
-              if stepsStr == "" then do
-                pure
-                  { endpoints: mkEndpoints start start
-                  , hexPoints: pure start
-                  , stones:
-                      cons'
-                        (Stone.connected start)
-                        [ Stone.disconnected $ Point 1 1 ]
-                  }
-              else do
-                moves <- lmap printParserError (runParser movesParser stepsStr)
-                points <- movesPath start moves
-                endpoints <- case movements moves of
-                  [ m ] -> do
-                    endpoint <- movesDest start m
-                    pure $ mkEndpoints start endpoint
-                  [ m1, m2 ] -> do
-                    endpoint1 <- movesDest start m1
-                    endpoint2 <- movesDest start m2
-                    pure $ mkEndpoints endpoint1 endpoint2
-                  ms ->
-                    throwError
-                      $ "You cannot have more than 2 movements, and you have "
-                      <> show (Array.length ms)
-                      <> "."
-                stones <- Stone.placeStones start $
-                  cons'
-                    { reset: false
-                    , connected: false
-                    , moves: pure C4
-                    }
-                    [ { reset: true
-                      , connected: false
-                      , moves: cons' (C7) [ C7 ]
-                      }
-                    ]
-
-                pure
+      svgDataP = poll.stepsStr <#> \stepsStr ->
+        if stepsStr == "" then do
+          pure
+            { endpoints: mkEndpoints (Point 1 1) (Point 1 1)
+            , hexPoints: pure $ Point 1 1
+            , stones: pure $ Stone.connected $ Point 1 1
+            }
+        else do
+          { stones, carrierMoves } <- lmap printParserError
+            (runParser templateSpecParser stepsStr)
+          let start = (Ne.head stones).pos
+          carrier <- movesPath start carrierMoves
+          endpoints <- case movements carrierMoves of
+            [ m ] -> do
+              endpoint <- movesDest start m
+              pure $ mkEndpoints start endpoint
+            [ m1, m2 ] -> do
+              endpoint1 <- movesDest start m1
+              endpoint2 <- movesDest start m2
+              pure $ mkEndpoints endpoint1 endpoint2
+            ms ->
+              throwError
+                $ "You cannot have more than 2 movements, and you have "
+                <> show (Array.length ms)
+                <> "."
+          pure
+            { endpoints
+            , hexPoints:
+                fill
                   { endpoints
-                  , hexPoints:
-                      fill
-                        { endpoints
-                        , hexPoints: Ne.nub points
-                        , stones
-                        }
+                  , hexPoints: Ne.nub carrier
                   , stones
                   }
-        )
-        poll.height
-        poll.stepsStr
+            , stones
+            }
+
     D.div [ A.style_ "height: 100vh;" ]
       [ inputs set poll
       , hexagonSvgs svgDataP
@@ -117,21 +93,7 @@ main = do
   where
   inputs set poll =
     D.div [ A.style_ "position: absolute; z-index: 1" ]
-      [ D.input
-          [ A.xtypeNumber
-          , A.min_ "1"
-          , A.step_ "1"
-          , A.value $ show <$> poll.height
-          , L.numberOn_ L.input $ round .> set.height
-          , selfT_
-              $ HTMLInputElem.toHTMLElement
-              .> focus
-              .> setTimeout 0
-              .> void
-          ]
-          []
-      , D.input [ A.value poll.stepsStr, L.valueOn_ L.input set.stepsStr ] []
-      ]
+      [ D.input [ A.value poll.stepsStr, L.valueOn_ L.input set.stepsStr ] [] ]
 
 type SvgData =
   { endpoints :: Endpoints
@@ -363,3 +325,22 @@ minWith f = foldl1 (\acc a -> if f a < f acc then a else acc)
 
 maxWith :: ∀ f a b. Foldable1 f => Ord b => (a -> b) -> f a -> a
 maxWith f = foldl1 (\acc a -> if f a > f acc then a else acc)
+
+type TemplateSpec =
+  { stones :: NonEmptyArray Stone
+  , carrierMoves :: NonEmptyArray Move
+  , enemyStones :: Array IPoint
+  }
+
+templateSpecParser :: Parser TemplateSpec
+templateSpecParser = do
+  { height, stoneMoves } <- stonesParser
+  _ <- Sp.char '-'
+  carrierMoves <- movesParser
+  case Stone.placeStones (Point 1 height) stoneMoves of
+    Right stones -> pure
+      { stones
+      , carrierMoves
+      , enemyStones: []
+      }
+    Left e -> Sp.fail $ show e

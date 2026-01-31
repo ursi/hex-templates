@@ -3,14 +3,18 @@ module Stone
   , connected
   , disconnected
   , placeStones
+  , stonesParser
   ) where
 
 import Lude
 
+import Data.Array as Array
 import Data.Array.NonEmpty as Ne
-import Movement (Clock, applyMovement, clockMove, dest)
+import Movement (Clock, applyMovement, clockMove, clockParser, dest)
 import Point (IPoint)
 import Point as Point
+import StringParser (Parser)
+import StringParser as Sp
 
 newtype Connected = Connected Boolean
 
@@ -37,7 +41,7 @@ placeStones
   :: ∀ @m
    . MonadError String m
   => IPoint
-  -> NonEmptyArray StoneMoves
+  -> Array StoneMoves
   -> m (NonEmptyArray Stone)
 placeStones start stonemoves =
   foldl
@@ -64,3 +68,19 @@ clockDest start = foldl
         throwError $ "`" <> show c <> "` moves you below the edge"
   )
   (pure start)
+
+stonesParser :: Parser { height :: Int, stoneMoves :: Array StoneMoves }
+stonesParser = do
+  height <- unsafeParseInt <$> Sp.regex "\\d+"
+  stoneMoves <- (Sp.char ':' *> manyStoneMovesParser) <|> pure []
+  pure { height, stoneMoves }
+  where
+  manyStoneMovesParser :: Parser (Array StoneMoves)
+  manyStoneMovesParser = Array.fromFoldable <$> Sp.sepEndBy stoneMovesParser (Sp.char ':')
+    where
+    stoneMovesParser :: Parser StoneMoves
+    stoneMovesParser = do
+      reset <- (Sp.char '*' $> true) <|> pure false
+      moves <- Ne.fromFoldable1 <$> Sp.many1 clockParser
+      connected' <- (Sp.char '^' $> true) <|> pure false
+      pure { reset, connected: connected', moves }

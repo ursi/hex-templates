@@ -6,6 +6,7 @@ module Movement
   , RelativeMovement(..)
   , applyMovement
   , clockMove
+  , clockParser
   , dest
   , edge
   , mkEndpoints
@@ -268,24 +269,6 @@ movesParser = do
     , pure moves
     ]
   where
-  clockParser :: Parser Clock
-  clockParser =
-    ( Sp.anyDigit >>= \d -> case d of
-        '1' -> pure C1
-        '2' -> pure C2
-        '3' -> pure C3
-        '4' -> pure C4
-        '5' -> pure C5
-        '6' -> pure C6
-        '7' -> pure C7
-        '8' -> pure C8
-        '9' -> pure C9
-        _ -> Sp.fail "only the digits 1-9 can be used"
-    )
-      <|> (Sp.char 'a' $> C10)
-      <|> (Sp.char 'b' $> C11)
-      <|> (Sp.char 'c' $> C12)
-
   toEdgeParser :: Parser Move
   toEdgeParser = do
     clockParser >>= \clock ->
@@ -325,6 +308,24 @@ movesParser = do
         C10 -> C2
         C11 -> C1
         c -> c
+
+clockParser :: Parser Clock
+clockParser =
+  ( Sp.anyDigit >>= \d -> case d of
+      '1' -> pure C1
+      '2' -> pure C2
+      '3' -> pure C3
+      '4' -> pure C4
+      '5' -> pure C5
+      '6' -> pure C6
+      '7' -> pure C7
+      '8' -> pure C8
+      '9' -> pure C9
+      _ -> Sp.fail "only the digits 1-9 can be used"
+  )
+    <|> (Sp.char 'a' $> C10)
+    <|> (Sp.char 'b' $> C11)
+    <|> (Sp.char 'c' $> C12)
 
 movements :: NonEmptyArray Move -> Array (NonEmptyArray Move)
 movements moves =
