@@ -6,7 +6,7 @@ import Data.Array as Array
 import Data.Array.NonEmpty ((..))
 import Data.Array.NonEmpty as Ne
 import Data.Bifunctor (lmap)
-import Data.Foldable (elem)
+import Data.Foldable (elem, oneOf)
 import Data.Semigroup.Foldable (class Foldable1, fold1, foldl1)
 import Deku.Core (Nut, fixed)
 import Deku.DOM (text_)
@@ -39,7 +39,7 @@ import Movement
   )
 import Point (Box, IPoint, NPoint, Point(..))
 import Point as Point
-import Stone (Stone, stonesParser)
+import Stone (Stone, manyStoneMovesParser, stonesParser)
 import Stone as Stone
 import StringParser (Parser, printParserError, runParser)
 import StringParser as Sp
@@ -54,12 +54,13 @@ main = do
         if stepsStr == "" then do
           pure
             { endpoints: mkEndpoints (Point 1 1) (Point 1 1)
-            , hexPoints: pure $ Point 1 1
+            , carrier: pure $ Point 1 1
             , stones: pure $ Stone.connected $ Point 1 1
+            , enemyStones: []
             }
         else do
-          { stones, carrierMoves } <- lmap printParserError
-            (runParser templateSpecParser stepsStr)
+          { stones, carrierMoves, enemyStones } <- lmap printParserError
+            $ runParser templateSpecParser stepsStr
           let start = (Ne.head stones).pos
           carrier <- movesPath start carrierMoves
           endpoints <- case movements carrierMoves of
@@ -77,13 +78,15 @@ main = do
                 <> "."
           pure
             { endpoints
-            , hexPoints:
+            , carrier:
                 fill
                   { endpoints
-                  , hexPoints: Ne.nub carrier
+                  , carrier: Ne.nub carrier
                   , stones
+                  , enemyStones
                   }
             , stones
+            , enemyStones
             }
 
     D.div [ A.style_ "height: 100vh;" ]
@@ -97,17 +100,18 @@ main = do
 
 type SvgData =
   { endpoints :: Endpoints
-  , hexPoints :: NonEmptyArray IPoint
+  , carrier :: NonEmptyArray IPoint
   , stones :: NonEmptyArray Stone
+  , enemyStones :: Array IPoint
   }
 
 hexagonSvgs :: Poll (Either String SvgData) -> Nut
 hexagonSvgs svgDataP =
   svgDataP <#~> case _ of
-    Right { endpoints, hexPoints, stones } ->
+    Right { endpoints, carrier, stones, enemyStones } ->
       let
         edgePoints = edge endpoints
-        allPoints = hexPoints <> edgePoints <> (stones <#> _.pos)
+        allPoints = carrier <> edgePoints <> (stones <#> _.pos)
       in
         Svg.svg
           [ SvgA.width_ "100%"
@@ -116,45 +120,65 @@ hexagonSvgs svgDataP =
           , SvgA.transform_ "scale(1,-1)"
           ]
           [ Svg.defs_
-              [ Svg.polygon
-                  [ SvgA.id_ hexSvgId
-                  , SvgA.strokeWidth_ $ show strokeWidth
-                  , SvgA.stroke_ "blue"
-                  , SvgA.fill_ "red"
-                  , SvgA.points_
-                      $ Hex.vertices Tall hexagon
-                      # map (\(Point x y) -> show x <> "," <> show y)
-                      # intercalate " "
-                  ]
-                  []
-              , Svg.polygon
-                  [ SvgA.id_ edgeId
-                  , SvgA.strokeWidth_ $ show strokeWidth
-                  , SvgA.stroke_ "white"
-                  , SvgA.fill_ "black"
-                  , SvgA.points_
-                      $ Hex.vertices Tall hexagon
-                      # map (\(Point x y) -> show x <> "," <> show y)
-                      # intercalate " "
-                  ]
-                  []
-              , Svg.g [ SvgA.id_ connectedStoneId ]
-                  [ Svg.circle
-                      [ SvgA.fill_ "black"
-                      , SvgA.r_ $ show $ 0.90 * Hex.apo hexagon
+              ( -- organized like this for readability
+                [ hexSvgId
+                    /\ \id -> Svg.polygon
+                      [ SvgA.id_ id
+                      , SvgA.strokeWidth_ $ show strokeWidth
+                      , SvgA.stroke_ "black"
+                      , SvgA.fill_ "rgb(214, 175, 114)"
+                      , SvgA.points_
+                          $ Hex.vertices Tall hexagon
+                          # map (\(Point x y) -> show x <> "," <> show y)
+                          # intercalate " "
                       ]
                       []
-                  ]
-              , Svg.circle
-                  [ SvgA.id_ disconnectedStoneId
-                  , SvgA.fill_ "white"
-                  , SvgA.r_ $ show $ 0.90 * Hex.apo hexagon
-                  ]
-                  []
-              ]
-          , fixed $ Array.fromFoldable $ placeHexagon <$> hexPoints
+                , edgeId
+                    /\ \id -> Svg.polygon
+                      [ SvgA.id_ id
+                      , SvgA.strokeWidth_ $ show strokeWidth
+                      , SvgA.stroke_ "white"
+                      , SvgA.fill_ "black"
+                      , SvgA.points_
+                          $ Hex.vertices Tall hexagon
+                          # map (\(Point x y) -> show x <> "," <> show y)
+                          # intercalate " "
+                      ]
+                      []
+                , connectedStoneId
+                    /\ \id -> Svg.g [ SvgA.id_ id ]
+                      [ Svg.circle
+                          [ SvgA.fill_ "black"
+                          , SvgA.r_ $ show $ 0.9 * Hex.apo hexagon
+                          ]
+                          []
+                      , Svg.circle
+                          [ SvgA.fill_ "white"
+                          , SvgA.r_ $ show $ 0.2 * 0.9 * Hex.apo hexagon
+                          ]
+                          []
+                      ]
+                , disconnectedStoneId
+                    /\ \id -> Svg.circle
+                      [ SvgA.id_ id
+                      , SvgA.fill_ "black"
+                      , SvgA.r_ $ show $ 0.9 * Hex.apo hexagon
+                      ]
+                      []
+                , enemyStoneId
+                    /\ \id -> Svg.g [ SvgA.id_ id ]
+                      [ Svg.circle
+                          [ SvgA.fill_ "white"
+                          , SvgA.r_ $ show $ 0.975 * 0.9 * Hex.apo hexagon
+                          ]
+                          []
+                      ]
+                ] <#> \(i /\ f) -> f i
+              )
+          , fixed $ Array.fromFoldable $ placeHexagon <$> carrier
           , fixed $ Array.fromFoldable $ placeEdge <$> edgePoints
           , fixed $ Array.fromFoldable $ placeStones <$> stones
+          , fixed $ Array.fromFoldable $ placeEnemyStones <$> enemyStones
           ]
     Left error -> D.div
       [ A.style_
@@ -181,6 +205,9 @@ hexagonSvgs svgDataP =
 
   disconnectedStoneId :: String
   disconnectedStoneId = "stone"
+
+  enemyStoneId :: String
+  enemyStoneId = "enemy"
 
   placeHexagon :: IPoint -> Nut
   placeHexagon hexGridPos =
@@ -234,6 +261,22 @@ hexagonSvgs svgDataP =
         ]
         []
 
+  placeEnemyStones :: IPoint -> Nut
+  placeEnemyStones hexGridPoint =
+    let
+      point = Hex.gridPoint hexagon hexGridPoint
+    in
+      Svg.use
+        [ SvgA.href_ $ "#" <> enemyStoneId
+        , SvgA.transform_
+            $ "translate("
+            <> show (Point.x point)
+            <> ","
+            <> show (Point.y point)
+            <> ")"
+        ]
+        []
+
   makeViewBox :: NonEmptyArray IPoint -> String
   makeViewBox positions =
     let
@@ -263,7 +306,7 @@ hexagonSvgs svgDataP =
     svgGridPoints pos = add (Hex.gridPoint hexagon pos) <$> Hex.vertices Tall hexagon
 
 fill :: SvgData -> NonEmptyArray IPoint
-fill { endpoints, hexPoints } =
+fill { endpoints, carrier } =
   case isFinished of
     Just ones ->
       let
@@ -276,7 +319,7 @@ fill { endpoints, hexPoints } =
           let
             next = start + Point i 0
           in
-            if not elem next hexPoints then
+            if not elem next carrier then
               Just next
             else if next /= finish then
               go $ i + 1
@@ -284,19 +327,19 @@ fill { endpoints, hexPoints } =
               Nothing
       in
         case go 1 of
-          Just ffStart -> floodFill ffStart (hexPoints <> bottomBorder)
+          Just ffStart -> floodFill ffStart (carrier <> bottomBorder)
             # Ne.filter ((/=) 0 <. Point.y)
             # Ne.fromArray
             # case _ of
                 Just a -> a
                 Nothing -> unsafeThrow "something has gone very wrong"
-          Nothing -> hexPoints
-    Nothing -> hexPoints
+          Nothing -> carrier
+    Nothing -> carrier
   where
   isFinished :: Maybe (NonEmptyArray IPoint)
   isFinished = do
     let
-      bottom = Ne.filter ((==) 1 <. Point.y) hexPoints
+      bottom = Ne.filter ((==) 1 <. Point.y) carrier
       e1 /\ e2 = unEndpoints endpoints
     if elem e1 bottom && elem e2 bottom then
       Ne.fromArray bottom
@@ -337,10 +380,22 @@ templateSpecParser = do
   { height, stoneMoves } <- stonesParser
   _ <- Sp.char '-'
   carrierMoves <- movesParser
-  case Stone.placeStones (Point 1 height) stoneMoves of
-    Right stones -> pure
-      { stones
-      , carrierMoves
-      , enemyStones: []
-      }
+  let start = Point 1 height
+  case Stone.placeStones start stoneMoves of
+    Right stones -> do
+      enemyStones <- oneOf
+        [ do
+            _ <- Sp.char '-'
+            enemyMoves <- manyStoneMovesParser
+            case Stone.placeEnemyStones start enemyMoves of
+              Right estones -> pure estones
+              Left e -> Sp.fail $ show e
+
+        , pure []
+        ]
+      pure
+        { stones
+        , carrierMoves
+        , enemyStones
+        }
     Left e -> Sp.fail $ show e
