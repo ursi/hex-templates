@@ -154,7 +154,10 @@ hexagonSvgs svgDataP =
             edgePoints = Endpoints.edge carrier.endpoints
           in
             svgContent
-              (carrier.cells <> edgePoints <> (stones <#> _.pos))
+              ( carrier.cells
+                  <> Endpoints.extendToEdge carrier.endpoints
+                  <> (stones <#> _.pos)
+              )
               $ fixed
                   [ fixed $ Array.fromFoldable $ placeHexagon <$> carrier.cells
                   , fixed $ Array.fromFoldable $ placeEdge <$> edgePoints

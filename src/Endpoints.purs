@@ -3,6 +3,7 @@ module Endpoints
   , mkEndpoints
   , unEndpoints
   , edge
+  , extendToEdge
   ) where
 
 import Lude
@@ -39,6 +40,10 @@ edge :: Endpoints -> NonEmptyArray IPoint
 edge (Endpoints (e1 /\ e2)) = do
   Point.x (_7toEdge e1) .. (Point.x (_5toEdge e2) + 1)
     <#> (Point ~$ 0)
+
+extendToEdge :: Endpoints -> NonEmptyArray IPoint
+extendToEdge (Endpoints (e1 /\ e2)) = do
+  cons' (_7toEdge e1) [ _5toEdge e2 ]
 
 _5toEdge :: IPoint -> IPoint
 _5toEdge p = unsafePartial case movesDest p $ pure $ ToEdge C5 of
