@@ -53,43 +53,56 @@ main = do
       svgDataP = poll.stepsStr <#> \stepsStr ->
         if stepsStr == "" then do
           pure
-            { endpoints: mkEndpoints (Point 1 1) (Point 1 1)
-            , carrier: pure $ Point 1 1
-            , stones: pure $ Stone.connected $ Point 1 1
+            { stones: pure $ Stone.connected $ Point 1 1
+            , mcarrier: Just
+                { cells: pure $ Point 1 1
+                , endpoints: mkEndpoints (Point 1 1) (Point 1 1)
+                }
             , enemyStones: []
             }
         else do
           { stones, carrierMoves, enemyStones } <- lmap printParserError
             $ runParser templateSpecParser stepsStr
-          let start = (Ne.head stones).pos
-          carrier <- movesPath start carrierMoves
-          endpoints <- case movements carrierMoves of
-            [ m ] -> do
-              endpoint <- movesDest start m
-              pure $ mkEndpoints start endpoint
-            [ m1, m2 ] -> do
-              endpoint1 <- movesDest start m1
-              endpoint2 <- movesDest start m2
-              pure $ mkEndpoints endpoint1 endpoint2
-            ms ->
-              throwError
-                $ "You cannot have more than 2 movements, and you have "
-                <> show (Array.length ms)
-                <> "."
-          pure
-            { endpoints
-            , carrier:
-                fill
-                  { endpoints
-                  , carrier: Ne.nub carrier
-                  , stones
-                  , enemyStones
-                  }
-            , stones
-            , enemyStones
-            }
+          case Ne.fromArray carrierMoves of
+            Just carrierMovesNe -> do
+              let start = (Ne.head stones).pos
+              carrier <- movesPath start carrierMovesNe
+              endpoints <- case movements carrierMovesNe of
+                [ m ] -> do
+                  endpoint <- movesDest start m
+                  pure $ mkEndpoints start endpoint
+                [ m1, m2 ] -> do
+                  endpoint1 <- movesDest start m1
+                  endpoint2 <- movesDest start m2
+                  pure $ mkEndpoints endpoint1 endpoint2
+                ms ->
+                  throwError
+                    $ "You cannot have more than 2 movements, and you have "
+                    <> show (Array.length ms)
+                    <> "."
+              pure
+                { stones
+                , mcarrier: Just
+                    { cells: fill { cells: Ne.nub carrier, endpoints }
+                    , endpoints
+                    }
+                , enemyStones
+                }
+            Nothing ->
+              pure
+                { stones
+                , mcarrier: Nothing
+                , enemyStones: []
+                }
 
-    D.div [ A.style_ "height: 100vh;" ]
+    D.div
+      [ A.style_
+          """
+          height: 100vh;
+          display: flex;
+          justify-content: center;
+          """
+      ]
       [ inputs set poll
       , hexagonSvgs svgDataP
       ]
@@ -98,88 +111,38 @@ main = do
     D.div [ A.style_ "position: absolute; z-index: 1" ]
       [ D.input [ A.value poll.stepsStr, L.valueOn_ L.input set.stepsStr ] [] ]
 
+type CarrierData =
+  { cells :: NonEmptyArray IPoint
+  , endpoints :: Endpoints
+  }
+
 type SvgData =
-  { endpoints :: Endpoints
-  , carrier :: NonEmptyArray IPoint
-  , stones :: NonEmptyArray Stone
+  { stones :: NonEmptyArray Stone
+  , mcarrier :: Maybe CarrierData
   , enemyStones :: Array IPoint
   }
 
 hexagonSvgs :: Poll (Either String SvgData) -> Nut
 hexagonSvgs svgDataP =
   svgDataP <#~> case _ of
-    Right { endpoints, carrier, stones, enemyStones } ->
-      let
-        edgePoints = edge endpoints
-        allPoints = carrier <> edgePoints <> (stones <#> _.pos)
-      in
-        Svg.svg
-          [ SvgA.width_ "100%"
-          , SvgA.height_ "100%"
-          , SvgA.viewBox_ $ makeViewBox allPoints
-          , SvgA.transform_ "scale(1,-1)"
-          ]
-          [ Svg.defs_
-              ( -- organized like this for readability
-                [ hexSvgId
-                    /\ \id -> Svg.polygon
-                      [ SvgA.id_ id
-                      , SvgA.strokeWidth_ $ show strokeWidth
-                      , SvgA.stroke_ "black"
-                      , SvgA.fill_ "rgb(214, 175, 114)"
-                      , SvgA.points_
-                          $ Hex.vertices Tall hexagon
-                          # map (\(Point x y) -> show x <> "," <> show y)
-                          # intercalate " "
-                      ]
-                      []
-                , edgeId
-                    /\ \id -> Svg.polygon
-                      [ SvgA.id_ id
-                      , SvgA.strokeWidth_ $ show strokeWidth
-                      , SvgA.stroke_ "white"
-                      , SvgA.fill_ "black"
-                      , SvgA.points_
-                          $ Hex.vertices Tall hexagon
-                          # map (\(Point x y) -> show x <> "," <> show y)
-                          # intercalate " "
-                      ]
-                      []
-                , connectedStoneId
-                    /\ \id -> Svg.g [ SvgA.id_ id ]
-                      [ Svg.circle
-                          [ SvgA.fill_ "black"
-                          , SvgA.r_ $ show $ 0.9 * Hex.apo hexagon
-                          ]
-                          []
-                      , Svg.circle
-                          [ SvgA.fill_ "white"
-                          , SvgA.r_ $ show $ 0.2 * 0.9 * Hex.apo hexagon
-                          ]
-                          []
-                      ]
-                , disconnectedStoneId
-                    /\ \id -> Svg.circle
-                      [ SvgA.id_ id
-                      , SvgA.fill_ "black"
-                      , SvgA.r_ $ show $ 0.9 * Hex.apo hexagon
-                      ]
-                      []
-                , enemyStoneId
-                    /\ \id -> Svg.g [ SvgA.id_ id ]
-                      [ Svg.circle
-                          [ SvgA.fill_ "white"
-                          , SvgA.r_ $ show $ 0.975 * 0.9 * Hex.apo hexagon
-                          ]
-                          []
-                      ]
-                ] <#> \(i /\ f) -> f i
-              )
-          , fixed $ Array.fromFoldable $ placeHexagon <$> carrier
-          , fixed $ Array.fromFoldable $ placeEdge <$> edgePoints
-          , fixed $ Array.fromFoldable $ placeStones <$> stones
-          , fixed $ Array.fromFoldable $ placeEnemyStones <$> enemyStones
-          ]
+    Right { mcarrier, stones, enemyStones } ->
+      case mcarrier of
+        Just carrier ->
+          let
+            edgePoints = edge carrier.endpoints
+          in
+            svgContent
+              (carrier.cells <> edgePoints <> (stones <#> _.pos))
+              $ fixed
+                  [ fixed $ Array.fromFoldable $ placeHexagon <$> carrier.cells
+                  , fixed $ Array.fromFoldable $ placeEdge <$> edgePoints
+                  , fixed $ Array.fromFoldable $ placeStones <$> stones
+                  , fixed $ Array.fromFoldable $ placeEnemyStones <$> enemyStones
+                  ]
+        Nothing ->
+          svgContent
+            (stones <#> _.pos)
+            (fixed $ Array.fromFoldable $ placeStones <$> stones)
     Left error -> D.div
       [ A.style_
           """
@@ -191,6 +154,73 @@ hexagonSvgs svgDataP =
       ]
       [ text_ error ]
   where
+  svgContent :: NonEmptyArray IPoint -> Nut -> Nut
+  svgContent allPoints content =
+    Svg.svg
+      [ SvgA.width_ "90%"
+      , SvgA.height_ "80%"
+      , SvgA.viewBox_ $ makeViewBox allPoints
+      , SvgA.transform_ "scale(1,-1)"
+      , SvgA.preserveAspectRatio_ "xMidYMin"
+      ]
+      [ Svg.defs_
+          ( -- organized like this for readability
+            [ hexSvgId
+                /\ \id -> Svg.polygon
+                  [ SvgA.id_ id
+                  , SvgA.strokeWidth_ $ show strokeWidth
+                  , SvgA.stroke_ "black"
+                  , SvgA.fill_ "rgb(214, 175, 114)"
+                  , SvgA.points_
+                      $ Hex.vertices Tall hexagon
+                      # map (\(Point x y) -> show x <> "," <> show y)
+                      # intercalate " "
+                  ]
+                  []
+            , edgeId
+                /\ \id -> Svg.polygon
+                  [ SvgA.id_ id
+                  , SvgA.strokeWidth_ $ show strokeWidth
+                  , SvgA.stroke_ "black"
+                  , SvgA.fill_ "black"
+                  , SvgA.points_
+                      $ Hex.vertices Tall hexagon
+                      # map (\(Point x y) -> show x <> "," <> show y)
+                      # intercalate " "
+                  ]
+                  []
+            , connectedStoneId
+                /\ \id -> Svg.g [ SvgA.id_ id ]
+                  [ Svg.circle
+                      [ SvgA.fill_ "black"
+                      , SvgA.r_ $ show $ 0.9 * Hex.apo hexagon
+                      ]
+                      []
+                  , Svg.circle
+                      [ SvgA.fill_ "white"
+                      , SvgA.r_ $ show $ 0.2 * 0.9 * Hex.apo hexagon
+                      ]
+                      []
+                  ]
+            , disconnectedStoneId
+                /\ \id -> Svg.circle
+                  [ SvgA.id_ id
+                  , SvgA.fill_ "black"
+                  , SvgA.r_ $ show $ 0.9 * Hex.apo hexagon
+                  ]
+                  []
+            , enemyStoneId
+                /\ \id -> Svg.g [ SvgA.id_ id ]
+                  [ Svg.circle
+                      [ SvgA.fill_ "white"
+                      , SvgA.r_ $ show $ 0.975 * 0.9 * Hex.apo hexagon
+                      ]
+                      []
+                  ]
+            ] <#> \(i /\ f) -> f i
+          )
+      , content
+      ]
   hexagon = Circ 1.0
   strokeWidth = 0.05
 
@@ -305,8 +335,8 @@ hexagonSvgs svgDataP =
     svgGridPoints :: IPoint -> NonEmptyArray NPoint
     svgGridPoints pos = add (Hex.gridPoint hexagon pos) <$> Hex.vertices Tall hexagon
 
-fill :: SvgData -> NonEmptyArray IPoint
-fill { endpoints, carrier } =
+fill :: CarrierData -> NonEmptyArray IPoint
+fill { cells, endpoints } =
   case isFinished of
     Just ones ->
       let
@@ -319,7 +349,7 @@ fill { endpoints, carrier } =
           let
             next = start + Point i 0
           in
-            if not elem next carrier then
+            if not elem next cells then
               Just next
             else if next /= finish then
               go $ i + 1
@@ -327,21 +357,21 @@ fill { endpoints, carrier } =
               Nothing
       in
         case go 1 of
-          Just ffStart -> floodFill ffStart (carrier <> bottomBorder)
+          Just ffStart -> floodFill ffStart (cells <> bottomBorder)
             # Ne.filter ((/=) 0 <. Point.y)
             # Ne.fromArray
             # case _ of
                 Just a -> a
                 Nothing -> unsafeThrow "something has gone very wrong"
-          Nothing -> carrier
-    Nothing -> carrier
+          Nothing -> cells
+    Nothing -> cells
   where
   isFinished :: Maybe (NonEmptyArray IPoint)
   isFinished = do
     let
-      bottom = Ne.filter ((==) 1 <. Point.y) carrier
+      bottom = Ne.filter ((==) 1 <. Point.y) cells
       e1 /\ e2 = unEndpoints endpoints
-    if elem e1 bottom && elem e2 bottom then
+    if elem e1 bottom && elem e2 bottom && e1 /= e2 then
       Ne.fromArray bottom
     else
       Nothing
@@ -371,31 +401,35 @@ maxWith f = foldl1 (\acc a -> if f a > f acc then a else acc)
 
 type TemplateSpec =
   { stones :: NonEmptyArray Stone
-  , carrierMoves :: NonEmptyArray Move
+  , carrierMoves :: Array Move
   , enemyStones :: Array IPoint
   }
 
 templateSpecParser :: Parser TemplateSpec
 templateSpecParser = do
   { height, stoneMoves } <- stonesParser
-  _ <- Sp.char '-'
-  carrierMoves <- movesParser
   let start = Point 1 height
   case Stone.placeStones start stoneMoves of
     Right stones -> do
-      enemyStones <- oneOf
-        [ do
+      oneOf
+        [ Sp.try do
             _ <- Sp.char '-'
-            enemyMoves <- manyStoneMovesParser
-            case Stone.placeEnemyStones start enemyMoves of
-              Right estones -> pure estones
-              Left e -> Sp.fail $ show e
+            carrierMoves <- Array.fromFoldable <$> movesParser
+            enemyStones <- oneOf
+              [ Sp.try do
+                  _ <- Sp.char '-'
+                  enemyMoves <- manyStoneMovesParser
+                  case Stone.placeEnemyStones start enemyMoves of
+                    Right estones -> pure estones
+                    Left e -> Sp.fail $ show e
 
-        , pure []
+              , pure []
+              ]
+            pure
+              { stones
+              , carrierMoves
+              , enemyStones
+              }
+        , pure { stones, carrierMoves: [], enemyStones: [] }
         ]
-      pure
-        { stones
-        , carrierMoves
-        , enemyStones
-        }
     Left e -> Sp.fail $ show e

@@ -98,7 +98,10 @@ stonesParser = do
   pure { height, stoneMoves }
 
 manyStoneMovesParser :: Parser (Array StoneMoves)
-manyStoneMovesParser = Array.fromFoldable <$> Sp.sepEndBy stoneMovesParser (Sp.char ':')
+manyStoneMovesParser = Array.fromFoldable <$>
+  Sp.sepEndBy
+    (Sp.try stoneMovesParser)
+    (Sp.char ':')
   where
   stoneMovesParser :: Parser StoneMoves
   stoneMovesParser = do
