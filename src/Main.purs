@@ -99,6 +99,7 @@ main = do
           height: 100vh;
           display: flex;
           justify-content: center;
+          align-items: center;
           """
       ]
       [ inputs set poll
@@ -106,8 +107,30 @@ main = do
       ]
   where
   inputs set poll =
-    D.div [ A.style_ "position: absolute; z-index: 1" ]
-      [ D.input [ A.value poll.stepsStr, L.valueOn_ L.input set.stepsStr ] [] ]
+    D.div
+      [ A.style_
+          """
+          position: absolute;
+          top: 10px;
+          z-index: 1;
+          width: 80%;
+          """
+      ]
+      [ D.input
+          [ A.style_
+              """
+              font: min(2rem, 4vh) monospace;
+              border-radius: .25em;
+              border: none;
+              padding: .25em;
+              width: 100%;
+              text-align: center;
+              """
+          , A.value poll.stepsStr
+          , L.valueOn_ L.input set.stepsStr
+          ]
+          []
+      ]
 
 type CarrierData =
   { cells :: NonEmptyArray IPoint
@@ -154,73 +177,75 @@ hexagonSvgs svgDataP =
   where
   svgContent :: NonEmptyArray IPoint -> Nut -> Nut
   svgContent allPoints content =
-    Svg.svg
-      [ SvgA.width_ "90%"
-      , SvgA.height_ "80%"
-      , SvgA.viewBox_ $ makeViewBox allPoints
-      , SvgA.transform_ "scale(1,-1)"
-      , SvgA.preserveAspectRatio_ "xMidYMin"
-      ]
-      [ Svg.defs_
-          ( -- organized like this for readability
-            [ hexSvgId
-                /\ \id -> Svg.polygon
-                  [ SvgA.id_ id
-                  , SvgA.strokeWidth_ $ show strokeWidth
-                  , SvgA.stroke_ "black"
-                  , SvgA.fill_ "rgb(214, 175, 114)"
-                  , SvgA.points_
-                      $ Hex.vertices Tall hexagon
-                      # map (\(Point x y) -> show x <> "," <> show y)
-                      # intercalate " "
-                  ]
-                  []
-            , edgeId
-                /\ \id -> Svg.polygon
-                  [ SvgA.id_ id
-                  , SvgA.strokeWidth_ $ show strokeWidth
-                  , SvgA.stroke_ "black"
-                  , SvgA.fill_ "black"
-                  , SvgA.points_
-                      $ Hex.vertices Tall hexagon
-                      # map (\(Point x y) -> show x <> "," <> show y)
-                      # intercalate " "
-                  ]
-                  []
-            , connectedStoneId
-                /\ \id -> Svg.g [ SvgA.id_ id ]
-                  [ Svg.circle
-                      [ SvgA.fill_ "black"
+    D.div [ A.style_ "height: 70%; padding: 0 5%;" ]
+      [ Svg.svg
+          [ SvgA.width_ "100%"
+          , SvgA.height_ "100%"
+          , SvgA.viewBox_ $ makeViewBox allPoints
+          , SvgA.transform_ "scale(1,-1)"
+          , SvgA.preserveAspectRatio_ "xMidYMin"
+          ]
+          [ Svg.defs_
+              ( -- organized like this for readability
+                [ hexSvgId
+                    /\ \id -> Svg.polygon
+                      [ SvgA.id_ id
+                      , SvgA.strokeWidth_ $ show strokeWidth
+                      , SvgA.stroke_ "black"
+                      , SvgA.fill_ "rgb(214, 175, 114)"
+                      , SvgA.points_
+                          $ Hex.vertices Tall hexagon
+                          # map (\(Point x y) -> show x <> "," <> show y)
+                          # intercalate " "
+                      ]
+                      []
+                , edgeId
+                    /\ \id -> Svg.polygon
+                      [ SvgA.id_ id
+                      , SvgA.strokeWidth_ $ show strokeWidth
+                      , SvgA.stroke_ "black"
+                      , SvgA.fill_ "black"
+                      , SvgA.points_
+                          $ Hex.vertices Tall hexagon
+                          # map (\(Point x y) -> show x <> "," <> show y)
+                          # intercalate " "
+                      ]
+                      []
+                , connectedStoneId
+                    /\ \id -> Svg.g [ SvgA.id_ id ]
+                      [ Svg.circle
+                          [ SvgA.fill_ "black"
+                          , SvgA.r_ $ show $ 0.9 * Hex.apo hexagon
+                          ]
+                          []
+                      , Svg.circle
+                          [ SvgA.fill_ "white"
+                          , SvgA.r_ $ show $ 0.2 * 0.9 * Hex.apo hexagon
+                          ]
+                          []
+                      ]
+                , disconnectedStoneId
+                    /\ \id -> Svg.circle
+                      [ SvgA.id_ id
+                      , SvgA.fill_ "black"
                       , SvgA.r_ $ show $ 0.9 * Hex.apo hexagon
                       ]
                       []
-                  , Svg.circle
-                      [ SvgA.fill_ "white"
-                      , SvgA.r_ $ show $ 0.2 * 0.9 * Hex.apo hexagon
+                , enemyStoneId
+                    /\ \id -> Svg.g [ SvgA.id_ id ]
+                      [ Svg.circle
+                          [ SvgA.fill_ "white"
+                          , SvgA.r_ $ show $ 0.975 * 0.9 * Hex.apo hexagon
+                          ]
+                          []
                       ]
-                      []
-                  ]
-            , disconnectedStoneId
-                /\ \id -> Svg.circle
-                  [ SvgA.id_ id
-                  , SvgA.fill_ "black"
-                  , SvgA.r_ $ show $ 0.9 * Hex.apo hexagon
-                  ]
-                  []
-            , enemyStoneId
-                /\ \id -> Svg.g [ SvgA.id_ id ]
-                  [ Svg.circle
-                      [ SvgA.fill_ "white"
-                      , SvgA.r_ $ show $ 0.975 * 0.9 * Hex.apo hexagon
-                      ]
-                      []
-                  ]
-            ] <#> \(i /\ f) -> f i
-          )
-      , content
+                ] <#> \(i /\ f) -> f i
+              )
+          , content
+          ]
       ]
   hexagon = Circ 1.0
-  strokeWidth = 0.05
+  strokeWidth = 0.075
 
   hexSvgId :: String
   hexSvgId = "hexagon"
