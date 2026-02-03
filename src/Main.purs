@@ -193,6 +193,7 @@ hexagonSvgs svgDataP =
                       [ SvgA.id_ id
                       , SvgA.strokeWidth_ $ show strokeWidth
                       , SvgA.stroke_ "black"
+                      -- HexWorld board color
                       , SvgA.fill_ "rgb(214, 175, 114)"
                       , SvgA.points_
                           $ Hex.vertices Tall hexagon
@@ -236,6 +237,7 @@ hexagonSvgs svgDataP =
                     /\ \id -> Svg.g [ SvgA.id_ id ]
                       [ Svg.circle
                           [ SvgA.fill_ "white"
+                          -- white stones look larger if they are the same size
                           , SvgA.r_ $ show $ 0.975 * 0.9 * Hex.apo hexagon
                           ]
                           []
