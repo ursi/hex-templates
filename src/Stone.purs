@@ -67,7 +67,7 @@ placeEnemyStones
   -> m (Array IPoint)
 placeEnemyStones start stonemoves =
   foldl
-    ( \acc { reset,  moves } -> do
+    ( \acc { reset, moves } -> do
         stones <- acc
         newStonePoint <-
           if reset then
@@ -76,7 +76,7 @@ placeEnemyStones start stonemoves =
             clockDest (fromMaybe start $ Array.last stones) moves
         pure $ Array.snoc stones $ newStonePoint
     )
-    (pure  [])
+    (pure [])
     stonemoves
 
 clockDest :: ∀ @m. MonadError String m => IPoint -> NonEmptyArray Clock -> m IPoint
