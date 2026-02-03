@@ -128,6 +128,7 @@ main = do
               """
           , A.value poll.stepsStr
           , L.valueOn_ L.input set.stepsStr
+          , A.spellcheck_ "false"
           ]
           []
       ]
