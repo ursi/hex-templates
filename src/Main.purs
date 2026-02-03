@@ -150,20 +150,18 @@ hexagonSvgs svgDataP =
     Right { mcarrier, stones, enemyStones } ->
       case mcarrier of
         Just carrier ->
-          let
-            edgePoints = Endpoints.edge carrier.endpoints
-          in
-            svgContent
-              ( carrier.cells
-                  <> Endpoints.extendToEdge carrier.endpoints
-                  <> (stones <#> _.pos)
-              )
-              $ fixed
-                  [ fixed $ Array.fromFoldable $ placeHexagon <$> carrier.cells
-                  , fixed $ Array.fromFoldable $ placeEdge <$> edgePoints
-                  , fixed $ Array.fromFoldable $ placeStones <$> stones
-                  , fixed $ Array.fromFoldable $ placeEnemyStones <$> enemyStones
-                  ]
+          svgContent
+            ( carrier.cells
+                <> Endpoints.extendToEdge carrier.endpoints
+                <> (stones <#> _.pos)
+            )
+            $ fixed
+            $ fold
+                [ placeHexagon <$> carrier.cells # Array.fromFoldable
+                , placeEdge <$> Endpoints.edge carrier.endpoints # Array.fromFoldable
+                , placeStones <$> stones # Array.fromFoldable
+                , placeEnemyStones <$> enemyStones
+                ]
         Nothing ->
           svgContent
             (stones <#> _.pos)
