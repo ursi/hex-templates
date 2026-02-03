@@ -45,11 +45,11 @@ import StringParser as Sp
 main :: Effect Unit
 main = do
   void $ runInBody Deku.do
-    set /\ poll <- magic { stepsStr: useState "7:779^:7-4434.7787.-5:9:77" }
+    set /\ poll <- magic { specStr: useState "7:779^:7-4434.7787.-5:9:77" }
     let
       svgDataP :: Poll (Either String SvgData)
-      svgDataP = poll.stepsStr <#> \stepsStr ->
-        if stepsStr == "" then do
+      svgDataP = poll.specStr <#> \specStr ->
+        if specStr == "" then do
           pure
             { stones: pure $ Stone.connected $ Point 1 1
             , mcarrier: Just
@@ -60,7 +60,7 @@ main = do
             }
         else do
           { stones, carrierMoves, enemyStones } <- lmap printParserError
-            $ runParser templateSpecParser stepsStr
+            $ runParser templateSpecParser specStr
           case Ne.fromArray carrierMoves of
             Just carrierMovesNe -> do
               let start = (Ne.head stones).pos
@@ -126,8 +126,8 @@ main = do
               width: 100%;
               text-align: center;
               """
-          , A.value poll.stepsStr
-          , L.valueOn_ L.input set.stepsStr
+          , A.value poll.specStr
+          , L.valueOn_ L.input set.specStr
           , A.spellcheck_ "false"
           ]
           []
