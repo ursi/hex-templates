@@ -18,24 +18,22 @@ import Deku.DOM.SVG.Attributes as SvgA
 import Deku.Do as Deku
 import Deku.Hooks (useState, (<#~>))
 import Deku.Toplevel (runInBody)
+import Endpoints (Endpoints, mkEndpoints, unEndpoints)
+import Endpoints as Endpoints
 import FRP.Poll (Poll)
 import Hexagon (Hexagon(Circ), Orientation(Tall))
 import Hexagon as Hex
 import Magic (magic)
 import Movement
   ( Clock(C11, C9, C7, C5, C3, C1)
-  , Endpoints
   , Move
   , applyMovement
   , clockMove
   , dest
-  , edge
-  , mkEndpoints
   , movements
   , movesDest
   , movesParser
   , movesPath
-  , unEndpoints
   )
 import Point (Box, IPoint, NPoint, Point(..))
 import Point as Point
@@ -129,7 +127,7 @@ hexagonSvgs svgDataP =
       case mcarrier of
         Just carrier ->
           let
-            edgePoints = edge carrier.endpoints
+            edgePoints = Endpoints.edge carrier.endpoints
           in
             svgContent
               (carrier.cells <> edgePoints <> (stones <#> _.pos))

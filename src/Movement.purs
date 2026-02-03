@@ -1,21 +1,17 @@
 module Movement
   ( AbsoluteMovement(..)
   , Clock(..)
-  , Endpoints
   , Move(..)
   , RelativeMovement(..)
   , applyMovement
   , clockMove
   , clockParser
   , dest
-  , edge
-  , mkEndpoints
   , movements
   , movesDest
   , movesParser
   , movesPath
   , points
-  , unEndpoints
   ) where
 
 import Lude
@@ -224,41 +220,6 @@ movesDest
   -> NonEmptyArray Move
   -> m IPoint
 movesDest = map Ne.last <.. movesPath
-
-newtype Endpoints = Endpoints (IPoint /\ IPoint)
-
-unEndpoints :: Endpoints -> IPoint /\ IPoint
-unEndpoints = coerce
-
-mkEndpoints :: IPoint -> IPoint -> Endpoints
-mkEndpoints p1 p2 =
-  let
-    epl = Ne.sortBy endpointSort $ cons' p1 [ p2 ]
-  in
-    Endpoints $ Ne.head epl /\ Ne.last epl
-
-endpointSort :: IPoint -> IPoint -> Ordering
-endpointSort p1 p2 =
-  let
-    by5 = compare (Point.x $ _5toEdge p1) (Point.x $ _5toEdge p2)
-  in
-    if by5 == EQ then
-      compare (Point.x $ _7toEdge p1) (Point.x $ _7toEdge p2)
-    else
-      by5
-
-edge :: Endpoints -> NonEmptyArray IPoint
-edge (Endpoints (e1 /\ e2)) = do
-  Point.x (_7toEdge e1) .. (Point.x (_5toEdge e2) + 1)
-    <#> (Point ~$ 0)
-
-_5toEdge :: IPoint -> IPoint
-_5toEdge p = unsafePartial case movesDest p $ pure $ ToEdge C5 of
-  Right e -> e
-
-_7toEdge :: IPoint -> IPoint
-_7toEdge p = unsafePartial case movesDest p $ pure $ ToEdge C5 of
-  Right e -> e
 
 movesParser :: Parser (NonEmptyArray Move)
 movesParser = do
