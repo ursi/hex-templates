@@ -247,23 +247,14 @@ hexagonSvgs svgDataP =
           , content
           ]
       ]
+
   hexagon = Circ 1.0
   strokeWidth = 0.075
   stoneRadius = 0.9 * Hex.apo hexagon
-
-  hexSvgId :: String
   hexSvgId = "hexagon"
-
-  edgeId :: String
   edgeId = "edge"
-
-  connectedStoneId :: String
   connectedStoneId = "connected-stone"
-
-  disconnectedStoneId :: String
   disconnectedStoneId = "stone"
-
-  enemyStoneId :: String
   enemyStoneId = "enemy"
 
   placeHexagon :: IPoint -> Nut
