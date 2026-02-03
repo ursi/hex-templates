@@ -45,7 +45,7 @@ import StringParser as Sp
 main :: Effect Unit
 main = do
   void $ runInBody Deku.do
-    set /\ poll <- magic { stepsStr: useState "3-4.7." }
+    set /\ poll <- magic { stepsStr: useState "7:779^:7-4434.7787.-5:9:77" }
     let
       svgDataP :: Poll (Either String SvgData)
       svgDataP = poll.stepsStr <#> \stepsStr ->
