@@ -217,12 +217,12 @@ hexagonSvgs svgDataP =
                     /\ \id -> Svg.g [ SvgA.id_ id ]
                       [ Svg.circle
                           [ SvgA.fill_ "black"
-                          , SvgA.r_ $ show $ 0.9 * Hex.apo hexagon
+                          , SvgA.r_ $ show stoneRadius
                           ]
                           []
                       , Svg.circle
                           [ SvgA.fill_ "white"
-                          , SvgA.r_ $ show $ 0.2 * 0.9 * Hex.apo hexagon
+                          , SvgA.r_ $ show $ 0.2 * stoneRadius
                           ]
                           []
                       ]
@@ -230,7 +230,7 @@ hexagonSvgs svgDataP =
                     /\ \id -> Svg.circle
                       [ SvgA.id_ id
                       , SvgA.fill_ "black"
-                      , SvgA.r_ $ show $ 0.9 * Hex.apo hexagon
+                      , SvgA.r_ $ show stoneRadius
                       ]
                       []
                 , enemyStoneId
@@ -238,7 +238,7 @@ hexagonSvgs svgDataP =
                       [ Svg.circle
                           [ SvgA.fill_ "white"
                           -- white stones look larger if they are the same size
-                          , SvgA.r_ $ show $ 0.975 * 0.9 * Hex.apo hexagon
+                          , SvgA.r_ $ show $ 0.975 * stoneRadius
                           ]
                           []
                       ]
@@ -249,6 +249,7 @@ hexagonSvgs svgDataP =
       ]
   hexagon = Circ 1.0
   strokeWidth = 0.075
+  stoneRadius = 0.9 * Hex.apo hexagon
 
   hexSvgId :: String
   hexSvgId = "hexagon"
