@@ -207,22 +207,6 @@
         "type": "github"
       }
     },
-    "official-package-set": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1767512513,
-        "narHash": "sha256-zNRYCDXkTzw8QjmTRcv/n5Uedvhn9aIgmamcqCD2g8Q=",
-        "owner": "purescript",
-        "repo": "package-sets",
-        "rev": "603e17fc270eb4e9584ad815b8d4972dd56fdde2",
-        "type": "github"
-      },
-      "original": {
-        "owner": "purescript",
-        "repo": "package-sets",
-        "type": "github"
-      }
-    },
     "ps-tools": {
       "inputs": {
         "lint-utils": [
@@ -279,14 +263,13 @@
         "get-flake": "get-flake",
         "lint-utils": "lint-utils_2",
         "nixpkgs": "nixpkgs_2",
-        "official-package-set": "official-package-set",
         "ps-tools": "ps-tools",
         "registry": "registry",
         "utils": "utils"
       },
       "locked": {
-        "lastModified": 1767814491,
-        "narHash": "sha256-0nUdDF5XGqUDQYtgeV6gpc0Y1HvR9fnrY8/O32M2e9M=",
+        "lastModified": 1770243760,
+        "narHash": "sha256-2IYRMgK/09HU5WYl0hVg2OunYhckHJ5Mt4tV8dU7le0=",
         "path": "/home/mason/git/purs-nix",
         "type": "path"
       },
@@ -298,11 +281,11 @@
     "registry": {
       "flake": false,
       "locked": {
-        "lastModified": 1767531332,
-        "narHash": "sha256-t3Mzoh4atyTXPavEXQmvxKbUzjmuKUz+K7wlmEV5uo8=",
+        "lastModified": 1770240638,
+        "narHash": "sha256-fgCY6D+x4VOHhM11ASWiLxaBgsLJ33fsGhy1W1hR1ZU=",
         "owner": "purescript",
         "repo": "registry",
-        "rev": "62242b47093f47c17689adc7897bf8483b08202c",
+        "rev": "15b8a097f098f515d4bb0cfc8486c409eb066fba",
         "type": "github"
       },
       "original": {
