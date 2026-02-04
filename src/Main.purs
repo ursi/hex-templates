@@ -52,10 +52,7 @@ main = do
         if specStr == "" then do
           pure
             { stones: pure $ Stone.connected $ Point 1 1
-            , mcarrier: Just
-                { cells: pure $ Point 1 1
-                , endpoints: mkEndpoints (Point 1 1) (Point 1 1)
-                }
+            , mcarrier: Nothing
             , enemyStones: []
             }
         else do
