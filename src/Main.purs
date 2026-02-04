@@ -113,7 +113,6 @@ main = do
           position: absolute;
           top: 10px;
           z-index: 1;
-          width: 80%;
           """
       ]
       [ D.input
@@ -123,7 +122,8 @@ main = do
               border-radius: .25em;
               border: none;
               padding: .25em;
-              width: 100%;
+              min-width: 27ch;
+              field-sizing: content;
               text-align: center;
               """
           , A.value poll.specStr
