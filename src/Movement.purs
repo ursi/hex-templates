@@ -3,6 +3,7 @@ module Movement
   , Clock(..)
   , Move(..)
   , RelativeMovement(..)
+  , Error(..)
   , applyMovement
   , clockMove
   , clockParser
@@ -12,6 +13,7 @@ module Movement
   , movesParser
   , movesPath
   , points
+  , unparse
   ) where
 
 import Lude
@@ -43,6 +45,28 @@ derive instance Generic Move _
 
 instance Show Move where
   show = genericShow
+
+unparse :: Move -> String
+unparse = case _ of
+  Step c -> unparseClock c
+  ToEdge c -> unparseClock c <> "."
+  ToZiggurat c -> unparseClock c <> "z"
+  Reset -> "*"
+  where
+  unparseClock :: Clock -> String
+  unparseClock = case _ of
+    C1 -> "1"
+    C2 -> "2"
+    C3 -> "3"
+    C4 -> "4"
+    C5 -> "5"
+    C6 -> "6"
+    C7 -> "7"
+    C8 -> "8"
+    C9 -> "9"
+    C10 -> "a"
+    C11 -> "b"
+    C12 -> "c"
 
 data RelativeMovement
   = Single IPoint
@@ -111,9 +135,14 @@ applyMovement p m = AbsoluteMovement case m of
       , doubleThreat: (p /\ p) + b.doubleThreat
       }
 
+data Error
+  = BelowEdge Move
+  | InvalidContinuation Move
+  | TooLowForZiggurat Move Int
+
 movesPath
   :: ∀ @m
-   . MonadError String m
+   . MonadError Error m
   => IPoint
   -> NonEmptyArray Move
   -> m (NonEmptyArray IPoint)
@@ -129,7 +158,7 @@ movesPath start = map snd <. foldl
             if Point.y newPos >= 1 then
               pure $ newPos /\ (points' <> points am)
             else
-              throwError $ "`" <> show (Step c) <> "` moves you below the edge"
+              throwError $ BelowEdge move
         ToEdge c ->
           let
             y = Point.y pos
@@ -137,7 +166,7 @@ movesPath start = map snd <. foldl
             if y == 1 then
               pure $ pos /\ points'
             else if y < 1 then
-              throwError "you are below the edge"
+              throwError $ BelowEdge move
             else
               let
                 adjacentStep :: Clock -> m (IPoint /\ NonEmptyArray IPoint)
@@ -182,7 +211,7 @@ movesPath start = map snd <. foldl
                         pure $ start /\ (points' <> points am)
                     else do
                       bridgeStep C8
-                  _ -> throwError $ "`" <> show move <> "` is an invlid move"
+                  _ -> throwError $ InvalidContinuation move
         ToZiggurat c ->
           let
             y = Point.y pos
@@ -201,13 +230,13 @@ movesPath start = map snd <. foldl
                   (Ne.appendArray points' (doubleThreat am) <> toZig)
           in
             if y < 4 then
-              throwError $ "you cannot ziggurat to the edge from height " <> show y
+              throwError $ TooLowForZiggurat move y
             else case c of
               C4 -> f C4 C5 C4
               C5 -> f C5 C5 C4
               C7 -> f C7 C7 C8
               C8 -> f C8 C7 C8
-              _ -> throwError $ "`" <> show move <> "` is an invlid move"
+              _ -> throwError $ InvalidContinuation move
         Reset ->
           pure $ start /\ points'
   )
@@ -215,7 +244,7 @@ movesPath start = map snd <. foldl
 
 movesDest
   :: ∀ @m
-   . MonadError String m
+   . MonadError Error m
   => IPoint
   -> NonEmptyArray Move
   -> m IPoint

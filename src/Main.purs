@@ -37,11 +37,12 @@ import Movement
   , movesParser
   , movesPath
   )
+import Movement as Movement
 import Point (Box, IPoint, NPoint, Point(..))
 import Point as Point
 import Stone (Stone, manyStoneMovesParser, stonesParser)
 import Stone as Stone
-import StringParser (Parser, printParserError, runParser)
+import StringParser (ParseError, Parser, printParserError, runParser)
 import StringParser as Sp
 import Web.HTML.HTMLElement (focus)
 import Web.HTML.HTMLInputElement as Input
@@ -51,7 +52,7 @@ main = do
   void $ runInBody Deku.do
     set /\ poll <- magic { specStr: useState "7:779^:7-4434.7787.-5:9:77" }
     let
-      svgDataP :: Poll (Either String SvgData)
+      svgDataP :: Poll (Either Error SvgData)
       svgDataP = poll.specStr <#> \specStr ->
         if specStr == "" then do
           pure
@@ -60,25 +61,21 @@ main = do
             , enemyStones: []
             }
         else do
-          { stones, carrierMoves, enemyStones } <- lmap printParserError
+          { stones, carrierMoves, enemyStones } <- lmap ParserError
             $ runParser templateSpecParser specStr
           case Ne.fromArray carrierMoves of
             Just carrierMovesNe -> do
               let start = (Ne.head stones).pos
-              carrier <- movesPath start carrierMovesNe
+              carrier <- lmap MovementError $ movesPath start carrierMovesNe
               endpoints <- case movements carrierMovesNe of
-                [ m ] -> do
+                [ m ] -> lmap MovementError do
                   endpoint <- movesDest start m
                   pure $ mkEndpoints start endpoint
-                [ m1, m2 ] -> do
+                [ m1, m2 ] -> lmap MovementError do
                   endpoint1 <- movesDest start m1
                   endpoint2 <- movesDest start m2
                   pure $ mkEndpoints endpoint1 endpoint2
-                ms ->
-                  throwError
-                    $ "You cannot have more than 2 movements, and you have "
-                    <> show (Array.length ms)
-                    <> "."
+                ms -> throwError $ MovementsError (Array.length ms)
               pure
                 { stones
                 , mcarrier: Just
@@ -147,7 +144,12 @@ type SvgData =
   , enemyStones :: Array IPoint
   }
 
-hexagonSvgs :: Poll (Either String SvgData) -> Nut
+data Error
+  = MovementError Movement.Error
+  | MovementsError Int
+  | ParserError ParseError
+
+hexagonSvgs :: Poll (Either Error SvgData) -> Nut
 hexagonSvgs svgDataP =
   svgDataP <#~> case _ of
     Right { mcarrier, stones, enemyStones } ->
@@ -169,16 +171,8 @@ hexagonSvgs svgDataP =
           svgContent
             (stones <#> _.pos)
             (fixed $ Array.fromFoldable $ placeStones <$> stones)
-    Left error -> D.div
-      [ A.style_
-          """
-          height: 100%;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          """
-      ]
-      [ text_ error ]
+    Left e -> handleError e
+
   where
   svgContent :: NonEmptyArray IPoint -> Nut -> Nut
   svgContent allPoints content =
@@ -251,6 +245,63 @@ hexagonSvgs svgDataP =
           , content
           ]
       ]
+
+  handleError :: Error -> Nut
+  handleError error =
+    let
+      highlight :: String -> Nut
+      highlight text =
+        D.span [ A.style_ "color: #bf0000; font-weight: bold;" ] [ text_ text ]
+
+      highlightMove :: Move -> Nut
+      highlightMove = Movement.unparse .> highlight
+    in
+      D.div
+        [ A.style_
+            """
+              height: 100%;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              font-size: 3em;
+              width: min(80%, 1100px);
+              """
+        ]
+        [ D.span_ case error of
+            MovementError me -> case me of
+              Movement.BelowEdge m ->
+                [ text_ "The move "
+                , highlightMove m
+                , text_ " takes you below the edge!"
+                ]
+              Movement.InvalidContinuation m ->
+                let
+                  symbol /\ meaning = case m of
+                    Movement.ToEdge _ -> "." /\ "\"continue this move untill you hit an edge\""
+                    Movement.ToZiggurat _ -> "z" /\ "\"continue until I can take an adjacent step downwards into a ziggurat\""
+                    _ -> unsafeThrow "something has gone horribly wrong"
+                in
+                  [ highlightMove m
+                  , text_ " is an invalid move. The "
+                  , highlight symbol
+                  , text_ $ " means " <> meaning <> ", but "
+                  , highlightMove m
+                  , text_ " will never hit an edge!"
+                  ]
+              Movement.TooLowForZiggurat m height ->
+                [ text_ "You're trying to use "
+                , highlightMove m
+                , text_ $ " on row " <> show height <> ", but "
+                , highlight "z"
+                , text_ " only works on rows 4 and up."
+                ]
+            MovementsError n -> [ text_ $ "The carrier needs to be specified with 2 paths from the start to the edge, but you currently have " <> show n <> "!" ]
+            ParserError e ->
+              let
+                _ = unsafePerformEffect $ log $ printParserError e
+              in
+                [ text_ "Your template encoding is not valid." ]
+        ]
 
   hexagon = Circ 1.0
   strokeWidth = 0.075
