@@ -486,24 +486,27 @@ templateSpecParser = do
   case Stone.placeStones start stoneMoves of
     Right stones -> do
       oneOf
-        [ Sp.try do
+        [ allSoFar { stones, carrierMoves: [], enemyStones: [] }
+        , do
             _ <- Sp.char Sntx.sectionSep
             carrierMoves <- Array.fromFoldable <$> movesParser
             enemyStones <- oneOf
-              [ Sp.try do
+              [ allSoFar []
+              , do
                   _ <- Sp.char Sntx.sectionSep
                   enemyMoves <- manyStoneMovesParser
+                  Sp.eof
                   case Stone.placeEnemyStones start enemyMoves of
                     Right estones -> pure estones
                     Left e -> Sp.fail $ show e
-
-              , pure []
               ]
             pure
               { stones
               , carrierMoves
               , enemyStones
               }
-        , pure { stones, carrierMoves: [], enemyStones: [] }
         ]
     Left e -> Sp.fail $ show e
+  where
+  allSoFar :: ∀ a. a -> Parser a
+  allSoFar = Sp.try <. ($>) (Sp.eof <|> (Sp.char Sntx.sectionSep *> Sp.eof))
