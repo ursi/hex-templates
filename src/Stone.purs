@@ -17,6 +17,7 @@ import Point (IPoint)
 import Point as Point
 import StringParser (Parser)
 import StringParser as Sp
+import Syntax as Sntx
 
 newtype Connected = Connected Boolean
 
@@ -94,18 +95,18 @@ clockDest start = foldl
 stonesParser :: Parser { height :: Int, stoneMoves :: Array StoneMoves }
 stonesParser = do
   height <- unsafeParseInt <$> Sp.regex "\\d+"
-  stoneMoves <- (Sp.char ':' *> manyStoneMovesParser) <|> pure []
+  stoneMoves <- (Sp.char Sntx.stoneSep *> manyStoneMovesParser) <|> pure []
   pure { height, stoneMoves }
 
 manyStoneMovesParser :: Parser (Array StoneMoves)
 manyStoneMovesParser = Array.fromFoldable <$>
   Sp.sepEndBy
     (Sp.try stoneMovesParser)
-    (Sp.char ':')
+    (Sp.char Sntx.stoneSep)
   where
   stoneMovesParser :: Parser StoneMoves
   stoneMovesParser = do
-    reset <- (Sp.char '*' $> true) <|> pure false
+    reset <- (Sp.char Sntx.reset $> true) <|> pure false
     moves <- Ne.fromFoldable1 <$> Sp.many1 clockParser
-    connected' <- (Sp.char '^' $> true) <|> pure false
+    connected' <- (Sp.char Sntx.connected $> true) <|> pure false
     pure { reset, connected: connected', moves }

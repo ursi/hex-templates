@@ -44,6 +44,7 @@ import Stone (Stone, manyStoneMovesParser, stonesParser)
 import Stone as Stone
 import StringParser (ParseError, Parser, printParserError, runParser)
 import StringParser as Sp
+import Syntax as Sntx
 import Web.HTML.HTMLElement (focus)
 import Web.HTML.HTMLInputElement as Input
 
@@ -277,8 +278,8 @@ hexagonSvgs svgDataP =
               Movement.InvalidContinuation m ->
                 let
                   symbol /\ meaning = case m of
-                    Movement.ToEdge _ -> "." /\ "\"continue this move untill you hit an edge\""
-                    Movement.ToZiggurat _ -> "z" /\ "\"continue until I can take an adjacent step downwards into a ziggurat\""
+                    Movement.ToEdge _ -> fromChar Sntx.toEdge /\ "\"continue this move untill you hit an edge\""
+                    Movement.ToZiggurat _ -> fromChar Sntx.toZig /\ "\"continue until I can take an adjacent step downwards into a ziggurat\""
                     _ -> unsafeThrow "something has gone horribly wrong"
                 in
                   [ highlightMove m
@@ -292,7 +293,7 @@ hexagonSvgs svgDataP =
                 [ text_ "You're trying to use "
                 , highlightMove m
                 , text_ $ " on row " <> show height <> ", but "
-                , highlight "z"
+                , highlight $ fromChar Sntx.toZig
                 , text_ " only works on rows 4 and up."
                 ]
             MovementsError n -> [ text_ $ "The carrier needs to be specified with 2 paths from the start to the edge, but you currently have " <> show n <> "!" ]
@@ -486,11 +487,11 @@ templateSpecParser = do
     Right stones -> do
       oneOf
         [ Sp.try do
-            _ <- Sp.char '-'
+            _ <- Sp.char Sntx.sectionSep
             carrierMoves <- Array.fromFoldable <$> movesParser
             enemyStones <- oneOf
               [ Sp.try do
-                  _ <- Sp.char '-'
+                  _ <- Sp.char Sntx.sectionSep
                   enemyMoves <- manyStoneMovesParser
                   case Stone.placeEnemyStones start enemyMoves of
                     Right estones -> pure estones

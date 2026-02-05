@@ -26,6 +26,7 @@ import Point (IPoint, Point(..))
 import Point as Point
 import StringParser (Parser)
 import StringParser as Sp
+import Syntax as Sntx
 
 data Clock = C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C9 | C10 | C11 | C12
 
@@ -49,9 +50,9 @@ instance Show Move where
 unparse :: Move -> String
 unparse = case _ of
   Step c -> unparseClock c
-  ToEdge c -> unparseClock c <> "."
-  ToZiggurat c -> unparseClock c <> "z"
-  Reset -> "*"
+  ToEdge c -> unparseClock c <> fromChar Sntx.toEdge
+  ToZiggurat c -> unparseClock c <> fromChar Sntx.toZig
+  Reset -> fromChar Sntx.reset
   where
   unparseClock :: Clock -> String
   unparseClock = case _ of
@@ -64,9 +65,9 @@ unparse = case _ of
     C7 -> "7"
     C8 -> "8"
     C9 -> "9"
-    C10 -> "a"
-    C11 -> "b"
-    C12 -> "c"
+    C10 -> fromChar Sntx._10
+    C11 -> fromChar Sntx._11
+    C12 -> fromChar Sntx._11
 
 data RelativeMovement
   = Single IPoint
@@ -255,18 +256,18 @@ movesParser = do
   moves <- Ne.fromFoldable1 <$>
     Sp.many1 (Sp.try toEdgeParser <|> (Step <$> clockParser) <|> reset)
   oneOf
-    [ Sp.char 's' $> reflect moves
+    [ Sp.char Sntx.sym $> reflect moves
     , pure moves
     ]
   where
   toEdgeParser :: Parser Move
   toEdgeParser = do
     clockParser >>= \clock ->
-      (Sp.char '.' $> ToEdge clock)
-        <|> (Sp.char 'z' $> ToZiggurat clock)
+      (Sp.char Sntx.toEdge $> ToEdge clock)
+        <|> (Sp.char Sntx.toZig $> ToZiggurat clock)
 
   reset :: Parser Move
-  reset = Sp.char '*' $> Reset
+  reset = Sp.char Sntx.reset $> Reset
 
   reflect :: NonEmptyArray Move -> NonEmptyArray Move
   reflect moves =
@@ -313,9 +314,9 @@ clockParser =
       '9' -> pure C9
       _ -> Sp.fail "only the digits 1-9 can be used"
   )
-    <|> (Sp.char 'a' $> C10)
-    <|> (Sp.char 'b' $> C11)
-    <|> (Sp.char 'c' $> C12)
+    <|> (Sp.char Sntx._10 $> C10)
+    <|> (Sp.char Sntx._11 $> C11)
+    <|> (Sp.char Sntx._12 $> C12)
 
 movements :: NonEmptyArray Move -> Array (NonEmptyArray Move)
 movements moves =
