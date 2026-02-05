@@ -2,6 +2,7 @@ module Lude
   ( module Exports
   , unsafeFromRight
   , unsafeParseInt
+  , logInfo
   ) where
 
 import MasonPrelude
@@ -14,6 +15,7 @@ import Partial.Unsafe (unsafePartial)
 import Partial.Unsafe (unsafePartial) as Exports
 
 foreign import unsafeParseInt :: String -> Int
+foreign import logInfo :: ∀ a b. a -> b -> b
 
 unsafeFromRight :: ∀ l r. Either l r -> r
 unsafeFromRight e = unsafePartial case e of

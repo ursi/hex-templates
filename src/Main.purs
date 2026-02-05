@@ -42,7 +42,7 @@ import Point (Box, IPoint, NPoint, Point(..))
 import Point as Point
 import Stone (Stone, StoneMoves, manyStoneMovesParser, stonesParser)
 import Stone as Stone
-import StringParser (ParseError, Parser, printParserError, runParser)
+import StringParser (ParseError, Parser, runParser)
 import StringParser as Sp
 import Syntax as Sntx
 import Web.HTML.HTMLElement (focus)
@@ -297,10 +297,7 @@ hexagonSvgs svgDataP =
                 ]
             MovementsError n -> [ text_ $ "The carrier needs to be specified with 2 paths from the start to the edge, but you currently have " <> show n <> "!" ]
             ParserError e ->
-              let
-                _ = unsafePerformEffect $ log $ printParserError e
-              in
-                [ text_ "Your template encoding is not valid." ]
+              [ text_ $ logInfo e "Your template encoding is not valid." ]
         ]
 
   hexagon = Circ 1.0
