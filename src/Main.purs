@@ -115,7 +115,7 @@ main = do
       [ D.input
           [ A.style_
               """
-              font: min(2rem, 4vh) monospace;
+              font-size: min(2rem, 4vh);
               border-radius: .25em;
               border: none;
               padding: .25em;
