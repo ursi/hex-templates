@@ -15,9 +15,11 @@ import Deku.DOM.Attributes as A
 import Deku.DOM.Listeners as L
 import Deku.DOM.SVG as Svg
 import Deku.DOM.SVG.Attributes as SvgA
+import Deku.DOM.Self (selfT_)
 import Deku.Do as Deku
 import Deku.Hooks (useState, (<#~>))
 import Deku.Toplevel (runInBody)
+import Effect.Timer (setTimeout)
 import Endpoints (Endpoints, mkEndpoints, unEndpoints)
 import Endpoints as Endpoints
 import FRP.Poll (Poll)
@@ -41,6 +43,8 @@ import Stone (Stone, manyStoneMovesParser, stonesParser)
 import Stone as Stone
 import StringParser (Parser, printParserError, runParser)
 import StringParser as Sp
+import Web.HTML.HTMLElement (focus)
+import Web.HTML.HTMLInputElement as Input
 
 main :: Effect Unit
 main = do
@@ -127,6 +131,7 @@ main = do
           , A.value poll.specStr
           , L.valueOn_ L.input set.specStr
           , A.spellcheck_ "false"
+          , selfT_ \i -> void $ setTimeout 0 $ focus $ Input.toHTMLElement i
           ]
           []
       ]
