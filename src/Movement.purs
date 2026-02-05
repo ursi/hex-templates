@@ -17,7 +17,7 @@ module Movement
 import Lude
 
 import Data.Array as Array
-import Data.Array.NonEmpty (snoc', (..))
+import Data.Array.NonEmpty (snoc')
 import Data.Array.NonEmpty as Ne
 import Data.Foldable (oneOf)
 import Point (IPoint, Point(..))
