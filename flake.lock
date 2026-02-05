@@ -268,14 +268,18 @@
         "utils": "utils"
       },
       "locked": {
-        "lastModified": 1770243760,
-        "narHash": "sha256-2IYRMgK/09HU5WYl0hVg2OunYhckHJ5Mt4tV8dU7le0=",
-        "path": "/home/mason/git/purs-nix",
-        "type": "path"
+        "lastModified": 1770243753,
+        "narHash": "sha256-ORs1vAhCRt0UNG0dNFIjg68t8RH2ro4s3Y5gal/r228=",
+        "owner": "purs-nix",
+        "repo": "purs-nix",
+        "rev": "b4a67ddfea124db61f4afd86244eb23823d6c512",
+        "type": "github"
       },
       "original": {
-        "path": "/home/mason/git/purs-nix",
-        "type": "path"
+        "owner": "purs-nix",
+        "ref": "ps-0.15",
+        "repo": "purs-nix",
+        "type": "github"
       }
     },
     "registry": {

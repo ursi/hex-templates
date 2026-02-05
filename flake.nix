@@ -6,8 +6,7 @@
     };
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     ps-tools.follows = "purs-nix/ps-tools";
-    # purs-nix.url = "github:purs-nix/purs-nix/ps-0.15";
-    purs-nix.url = "path:/home/mason/git/purs-nix";
+    purs-nix.url = "github:purs-nix/purs-nix/ps-0.15";
     shelpers.url = "gitlab:platonic/shelpers";
     utils.url = "github:numtide/flake-utils";
     purescript-overlay = {
