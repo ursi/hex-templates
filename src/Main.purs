@@ -51,7 +51,7 @@ import Web.HTML.HTMLInputElement as Input
 main :: Effect Unit
 main = do
   void $ runInBody Deku.do
-    set /\ poll <- magic { specStr: useState "7:779^:7-4434.7787.-5:9:77" }
+    set /\ poll <- magic { specStr: useState "7:78^:7-4434.7787.-5:9:77" }
     let
       svgDataP :: Poll (Either Error SvgData)
       svgDataP = poll.specStr <#> \specStr ->
@@ -120,7 +120,7 @@ main = do
               border-radius: .25em;
               border: none;
               padding: .25em;
-              min-width: 27ch;
+              min-width: 26ch;
               field-sizing: content;
               text-align: center;
               outline: none;
