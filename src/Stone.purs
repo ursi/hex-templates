@@ -1,5 +1,6 @@
 module Stone
   ( Stone
+  , StoneMoves
   , connected
   , disconnected
   , placeStones
@@ -12,7 +13,7 @@ import Lude
 
 import Data.Array as Array
 import Data.Array.NonEmpty as Ne
-import Movement (Clock, applyMovement, clockMove, clockParser, dest)
+import Movement (Clock, Error(BelowEdge), applyMovement, clockMove, clockParser, dest)
 import Point (IPoint)
 import Point as Point
 import StringParser (Parser)
@@ -42,7 +43,7 @@ type StoneMoves =
 
 placeStones
   :: ∀ @m
-   . MonadError String m
+   . MonadError Error m
   => IPoint
   -> Array StoneMoves
   -> m (NonEmptyArray Stone)
@@ -62,7 +63,7 @@ placeStones start stonemoves =
 
 placeEnemyStones
   :: ∀ @m
-   . MonadError String m
+   . MonadError Error m
   => IPoint
   -> Array StoneMoves
   -> m (Array IPoint)
@@ -80,7 +81,7 @@ placeEnemyStones start stonemoves =
     (pure [])
     stonemoves
 
-clockDest :: ∀ @m. MonadError String m => IPoint -> NonEmptyArray Clock -> m IPoint
+clockDest :: ∀ @m. MonadError Error m => IPoint -> NonEmptyArray Clock -> m IPoint
 clockDest start = foldl
   ( \acc c -> do
       pos <- acc
@@ -88,7 +89,7 @@ clockDest start = foldl
       if Point.y newPos >= 1 then
         pure $ newPos
       else
-        throwError $ "`" <> show c <> "` moves you below the edge"
+        throwError $ BelowEdge c
   )
   (pure start)
 

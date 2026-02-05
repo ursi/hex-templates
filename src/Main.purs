@@ -40,7 +40,7 @@ import Movement
 import Movement as Movement
 import Point (Box, IPoint, NPoint, Point(..))
 import Point as Point
-import Stone (Stone, manyStoneMovesParser, stonesParser)
+import Stone (Stone, StoneMoves, manyStoneMovesParser, stonesParser)
 import Stone as Stone
 import StringParser (ParseError, Parser, printParserError, runParser)
 import StringParser as Sp
@@ -62,8 +62,7 @@ main = do
             , enemyStones: []
             }
         else do
-          { stones, carrierMoves, enemyStones } <- lmap ParserError
-            $ runParser templateSpecParser specStr
+          { stones, carrierMoves, enemyStones } <- parseTemplateSpec specStr
           case Ne.fromArray carrierMoves of
             Just carrierMovesNe -> do
               let start = (Ne.head stones).pos
@@ -270,9 +269,9 @@ hexagonSvgs svgDataP =
         ]
         [ D.span_ case error of
             MovementError me -> case me of
-              Movement.BelowEdge m ->
+              Movement.BelowEdge clock ->
                 [ text_ "The move "
-                , highlightMove m
+                , highlightMove $ Movement.Step clock
                 , text_ " takes you below the edge!"
                 ]
               Movement.InvalidContinuation m ->
@@ -479,34 +478,44 @@ type TemplateSpec =
   , enemyStones :: Array IPoint
   }
 
-templateSpecParser :: Parser TemplateSpec
-templateSpecParser = do
-  { height, stoneMoves } <- stonesParser
+parseTemplateSpec :: String -> Either Error TemplateSpec
+parseTemplateSpec input = do
+  { height, stoneMoves, carrierMoves, enemyMoves } <-
+    lmap ParserError $ runParser parser input
   let start = Point 1 height
-  case Stone.placeStones start stoneMoves of
-    Right stones -> do
-      oneOf
-        [ allSoFar { stones, carrierMoves: [], enemyStones: [] }
-        , do
-            _ <- Sp.char Sntx.sectionSep
-            carrierMoves <- Array.fromFoldable <$> movesParser
-            enemyStones <- oneOf
-              [ allSoFar []
-              , do
-                  _ <- Sp.char Sntx.sectionSep
-                  enemyMoves <- manyStoneMovesParser
-                  Sp.eof
-                  case Stone.placeEnemyStones start enemyMoves of
-                    Right estones -> pure estones
-                    Left e -> Sp.fail $ show e
-              ]
-            pure
-              { stones
-              , carrierMoves
-              , enemyStones
-              }
-        ]
-    Left e -> Sp.fail $ show e
+  stones <- lmap MovementError $ Stone.placeStones start stoneMoves
+  enemyStones <- lmap MovementError $ Stone.placeEnemyStones start enemyMoves
+  pure { stones, carrierMoves, enemyStones }
   where
+  parser
+    :: Parser
+         { height :: Int
+         , stoneMoves :: Array StoneMoves
+         , carrierMoves :: Array Move
+         , enemyMoves :: Array StoneMoves
+         }
+  parser = do
+    { height, stoneMoves } <- stonesParser
+    oneOf
+      [ allSoFar { height, stoneMoves, carrierMoves: [], enemyMoves: [] }
+      , do
+          _ <- Sp.char Sntx.sectionSep
+          carrierMoves <- Array.fromFoldable <$> movesParser
+          enemyMoves <- oneOf
+            [ allSoFar []
+            , do
+                _ <- Sp.char Sntx.sectionSep
+                enemyMoves <- manyStoneMovesParser
+                Sp.eof
+                pure enemyMoves
+            ]
+          pure
+            { height
+            , stoneMoves
+            , carrierMoves
+            , enemyMoves
+            }
+      ]
+
   allSoFar :: ∀ a. a -> Parser a
   allSoFar = Sp.try <. ($>) (Sp.eof <|> (Sp.char Sntx.sectionSep *> Sp.eof))

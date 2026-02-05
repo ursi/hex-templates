@@ -137,7 +137,7 @@ applyMovement p m = AbsoluteMovement case m of
       }
 
 data Error
-  = BelowEdge Move
+  = BelowEdge Clock
   | InvalidContinuation Move
   | TooLowForZiggurat Move Int
 
@@ -159,7 +159,7 @@ movesPath start = map snd <. foldl
             if Point.y newPos >= 1 then
               pure $ newPos /\ (points' <> points am)
             else
-              throwError $ BelowEdge move
+              throwError $ BelowEdge c
         ToEdge c ->
           let
             y = Point.y pos
@@ -167,7 +167,7 @@ movesPath start = map snd <. foldl
             if y == 1 then
               pure $ pos /\ points'
             else if y < 1 then
-              throwError $ BelowEdge move
+              throwError $ BelowEdge c
             else
               let
                 adjacentStep :: Clock -> m (IPoint /\ NonEmptyArray IPoint)
