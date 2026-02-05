@@ -53,6 +53,17 @@
                       description = "Bundle the app with purs-backend-es";
                       script = "purs-backend-es bundle-app --int-tags -y -t main.js";
                     };
+                    deploy = {
+                      description = "deploy the app to GitHub Pages";
+                      script = ''
+                        git checkout -B pages
+                        purs-backend-es bundle-app --int-tags -y -t main.js
+                        git add -f main.js
+                        git commit -m deploy
+                        git push -f
+                        git checkout -
+                      '';
+                    };
                   };
                 };
               })
