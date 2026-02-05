@@ -9,34 +9,15 @@
     purs-nix.url = "github:purs-nix/purs-nix/ps-0.15";
     shelpers.url = "gitlab:platonic/shelpers";
     utils.url = "github:numtide/flake-utils";
-    purescript-overlay = {
-      url = "github:thomashoneyman/purescript-overlay";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
-  outputs =
-    inputs@{ lint-utils, ... }:
-      with builtins;
-      inputs.utils.lib.eachDefaultSystem
-        (system:
+  outputs = inputs:
+    with builtins;
+    inputs.utils.lib.eachDefaultSystem
+      (system:
         let
-          p = import inputs.nixpkgs {
-            inherit system;
-            overlays = [ inputs.purescript-overlay.overlays.default ];
-          };
-
-          l = p.lib;
-
-          fs = l.fileset;
-          onlyExts = exts: path: fs.toSource {
-            root = path;
-            fileset = fs.fileFilter (f: foldl' l.or false (map f.hasExt exts)) path;
-          };
-
-          lu = lint-utils.linters.${system};
-          lu-pkgs = lint-utils.packages.${system};
-
+          p = inputs.nixpkgs.legacyPackages.${system};
+          lu-pkgs = inputs.lint-utils.packages.${system};
           ps-tools = inputs.ps-tools.legacyPackages.${system};
           purs-nix =
             inputs.purs-nix {
@@ -57,7 +38,7 @@
             dir = ./.;
           };
 
-          inherit (inputs.shelpers.lib p) eval-shelpers shelp;
+          inherit (inputs.shelpers.lib p) eval-shelpers;
           shelpers =
             eval-shelpers [
               ({ shelp, ... }: {
@@ -82,12 +63,6 @@
               nodejs
               (ps.command {
                 compile.codegen = "corefn,docs,js";
-                bundle.esbuild.format = "iife";
-              })
-              (ps.command {
-                name = "dce";
-                output = "dce-output";
-                compile.codegen = "corefn,js";
                 bundle.esbuild.format = "iife";
               })
               ps-tools.purescript-language-server
