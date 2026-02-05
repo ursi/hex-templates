@@ -8,7 +8,7 @@ import Data.Array.NonEmpty as Ne
 import Data.Bifunctor (lmap)
 import Data.Foldable (elem, oneOf)
 import Data.Semigroup.Foldable (class Foldable1, fold1, foldl1)
-import Deku.Core (Nut, fixed)
+import Deku.Core (Attribute, Nut, fixed)
 import Deku.DOM (text_)
 import Deku.DOM as D
 import Deku.DOM.Attributes as A
@@ -44,6 +44,7 @@ import Stone (Stone, StoneMoves, manyStoneMovesParser, stonesParser)
 import Stone as Stone
 import StringParser (ParseError, Parser, runParser)
 import StringParser as Sp
+import Svg (Use, makeSvg)
 import Syntax as Sntx
 import Web.HTML.HTMLElement (focus)
 import Web.HTML.HTMLInputElement as Input
@@ -160,90 +161,102 @@ hexagonSvgs svgDataP =
                 <> Endpoints.extendToEdge carrier.endpoints
                 <> (stones <#> _.pos)
             )
-            $ fixed
-            $ fold
-                [ placeHexagon <$> carrier.cells # Array.fromFoldable
-                , placeEdge <$> Endpoints.edge carrier.endpoints # Array.fromFoldable
-                , placeStones <$> stones # Array.fromFoldable
-                , placeEnemyStones <$> enemyStones
-                ]
+            ( \use ->
+                let
+                  t u gridPoint = u [ translate gridPoint ]
+                in
+                  [ -- carrier svgs
+                    t use.emptyCell <$> carrier.cells # Array.fromFoldable # fixed
+                  , -- edge cells
+                    t use.edgeCell <$> Endpoints.edge carrier.endpoints
+                      # Array.fromFoldable
+                      # fixed
+                  , -- stones
+                    placeStone use <$> stones # Array.fromFoldable # fixed
+                  , -- enemy stones
+                    t use.enemyStone <$> enemyStones # fixed
+                  ]
+            )
         Nothing ->
           svgContent
             (stones <#> _.pos)
-            (fixed $ Array.fromFoldable $ placeStones <$> stones)
+            (\use -> Array.fromFoldable $ placeStone use <$> stones)
     Left e -> handleError e
 
   where
-  svgContent :: NonEmptyArray IPoint -> Nut -> Nut
+  svgContent
+    :: NonEmptyArray IPoint
+    -> ( { emptyCell :: Use
+         , edgeCell :: Use
+         , connectedStone :: Use
+         , disconnectedStone :: Use
+         , enemyStone :: Use
+         }
+         -> Array Nut
+       )
+    -> Nut
   svgContent allPoints content =
     D.div [ A.style_ "height: 70%; padding: 0 5%;" ]
-      [ Svg.svg
+      [ makeSvg
           [ SvgA.width_ "100%"
           , SvgA.height_ "100%"
           , SvgA.viewBox_ $ makeViewBox allPoints
           , SvgA.transform_ "scale(1,-1)"
           , SvgA.preserveAspectRatio_ "xMidYMin"
           ]
-          [ Svg.defs_
-              ( -- organized like this for readability
-                [ hexSvgId
-                    /\ \id -> Svg.polygon
-                      [ SvgA.id_ id
-                      , SvgA.strokeWidth_ $ show strokeWidth
-                      , SvgA.stroke_ "black"
-                      -- HexWorld board color
-                      , SvgA.fill_ "rgb(214, 175, 114)"
-                      , SvgA.points_
-                          $ Hex.vertices Tall hexagon
-                          # map (\(Point x y) -> show x <> "," <> show y)
-                          # intercalate " "
-                      ]
-                      []
-                , edgeId
-                    /\ \id -> Svg.polygon
-                      [ SvgA.id_ id
-                      , SvgA.strokeWidth_ $ show strokeWidth
-                      , SvgA.stroke_ "black"
-                      , SvgA.fill_ "black"
-                      , SvgA.points_
-                          $ Hex.vertices Tall hexagon
-                          # map (\(Point x y) -> show x <> "," <> show y)
-                          # intercalate " "
-                      ]
-                      []
-                , connectedStoneId
-                    /\ \id -> Svg.g [ SvgA.id_ id ]
-                      [ Svg.circle
-                          [ SvgA.fill_ "black"
-                          , SvgA.r_ $ show stoneRadius
-                          ]
-                          []
-                      , Svg.circle
-                          [ SvgA.fill_ "white"
-                          , SvgA.r_ $ show $ 0.2 * stoneRadius
-                          ]
-                          []
-                      ]
-                , disconnectedStoneId
-                    /\ \id -> Svg.circle
-                      [ SvgA.id_ id
-                      , SvgA.fill_ "black"
-                      , SvgA.r_ $ show stoneRadius
-                      ]
-                      []
-                , enemyStoneId
-                    /\ \id -> Svg.g [ SvgA.id_ id ]
-                      [ Svg.circle
-                          [ SvgA.fill_ "white"
-                          -- white stones look larger if they are the same size
-                          , SvgA.r_ $ show $ 0.975 * stoneRadius
-                          ]
-                          []
-                      ]
-                ] <#> \(i /\ f) -> f i
-              )
-          , content
-          ]
+          { emptyCell:
+              Svg.polygon
+                [ SvgA.strokeWidth_ $ show strokeWidth
+                , SvgA.stroke_ "black"
+                -- HexWorld board color
+                , SvgA.fill_ "rgb(214, 175, 114)"
+                , SvgA.points_
+                    $ Hex.vertices Tall hexagon
+                    # map (\(Point x y) -> show x <> "," <> show y)
+                    # intercalate " "
+                ]
+                []
+          , edgeCell:
+              Svg.polygon
+                [ SvgA.strokeWidth_ $ show strokeWidth
+                , SvgA.stroke_ "black"
+                , SvgA.fill_ "black"
+                , SvgA.points_
+                    $ Hex.vertices Tall hexagon
+                    # map (\(Point x y) -> show x <> "," <> show y)
+                    # intercalate " "
+                ]
+                []
+          , connectedStone:
+              Svg.g_
+                [ Svg.circle
+                    [ SvgA.fill_ "black"
+                    , SvgA.r_ $ show stoneRadius
+                    ]
+                    []
+                , Svg.circle
+                    [ SvgA.fill_ "white"
+                    , SvgA.r_ $ show $ 0.2 * stoneRadius
+                    ]
+                    []
+                ]
+          , disconnectedStone:
+              Svg.circle
+                [ SvgA.fill_ "black"
+                , SvgA.r_ $ show stoneRadius
+                ]
+                []
+          , enemyStone:
+              Svg.g_
+                [ Svg.circle
+                    [ SvgA.fill_ "white"
+                    -- white stones look larger if they are the same size
+                    , SvgA.r_ $ show $ 0.975 * stoneRadius
+                    ]
+                    []
+                ]
+          }
+          content
       ]
 
   handleError :: Error -> Nut
@@ -303,79 +316,31 @@ hexagonSvgs svgDataP =
   hexagon = Circ 1.0
   strokeWidth = 0.075
   stoneRadius = 0.9 * Hex.apo hexagon
-  hexSvgId = "hexagon"
-  edgeId = "edge"
-  connectedStoneId = "connected-stone"
-  disconnectedStoneId = "stone"
-  enemyStoneId = "enemy"
 
-  placeHexagon :: IPoint -> Nut
-  placeHexagon hexGridPos =
-    let
-      point = Hex.gridPoint hexagon hexGridPos
-    in
-      Svg.use
-        [ SvgA.href_ $ "#" <> hexSvgId
-        , SvgA.transform_
-            $ "translate("
-            <> show (Point.x point)
-            <> ","
-            <> show (Point.y point)
-            <> ")"
-        ]
-        []
+  placeStone
+    :: ∀ r
+     . { connectedStone :: Use, disconnectedStone :: Use | r }
+    -> Stone
+    -> Nut
+  placeStone use stone =
+    ( if stone.connected then
+        use.connectedStone
+      else
+        use.disconnectedStone
+    )
+      [ translate stone.pos ]
 
-  placeEdge :: IPoint -> Nut
-  placeEdge hexGridPos =
+  translate :: ∀ f r. Applicative f => IPoint -> f (Attribute (transform :: String | r))
+  translate gridPoint =
     let
-      point = Hex.gridPoint hexagon hexGridPos
+      point = Hex.gridPoint hexagon gridPoint
     in
-      Svg.use
-        [ SvgA.href_ $ "#" <> edgeId
-        , SvgA.transform_
-            $ "translate("
-            <> show (Point.x point)
-            <> ","
-            <> show (Point.y point)
-            <> ")"
-        ]
-        []
-
-  placeStones :: Stone -> Nut
-  placeStones { connected, pos } =
-    let
-      point = Hex.gridPoint hexagon pos
-    in
-      Svg.use
-        [ SvgA.href_ $ "#" <>
-            if connected then
-              connectedStoneId
-            else
-              disconnectedStoneId
-        , SvgA.transform_
-            $ "translate("
-            <> show (Point.x point)
-            <> ","
-            <> show (Point.y point)
-            <> ")"
-        ]
-        []
-
-  placeEnemyStones :: IPoint -> Nut
-  placeEnemyStones hexGridPoint =
-    let
-      point = Hex.gridPoint hexagon hexGridPoint
-    in
-      Svg.use
-        [ SvgA.href_ $ "#" <> enemyStoneId
-        , SvgA.transform_
-            $ "translate("
-            <> show (Point.x point)
-            <> ","
-            <> show (Point.y point)
-            <> ")"
-        ]
-        []
+      SvgA.transform_
+        $ "translate("
+        <> show (Point.x point)
+        <> ","
+        <> show (Point.y point)
+        <> ")"
 
   makeViewBox :: NonEmptyArray IPoint -> String
   makeViewBox positions =
