@@ -125,6 +125,7 @@ main = do
               min-width: 27ch;
               field-sizing: content;
               text-align: center;
+              outline: none;
               """
           , A.value poll.specStr
           , L.valueOn_ L.input set.specStr
