@@ -49,6 +49,10 @@
                       description = "Watch for changes and bundle the purescript code";
                       script = "find src | entr -s 'echo bundling; purs-nix bundle'";
                     };
+                    optimized-bundle = {
+                      description = "Bundle the app with purs-backend-es";
+                      script = "purs-backend-es bundle-app --int-tags -y -t main.js";
+                    };
                   };
                 };
               })
