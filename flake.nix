@@ -62,6 +62,7 @@
                         git commit -m deploy
                         git push -f
                         git checkout -
+                        purs-nix bundle
                       '';
                     };
                   };
