@@ -12,3 +12,8 @@ body {
 	color: #870000;
 	font-weight: bold;
 }
+
+.c1 {
+	/* HexWorld board color */
+	fill: rgb(214, 175, 114);
+}

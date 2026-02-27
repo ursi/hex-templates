@@ -311,12 +311,11 @@ hexagonSvgs svgDataP =
               Svg.polygon
                 [ SvgA.strokeWidth_ $ show strokeWidth
                 , SvgA.stroke_ "black"
-                -- HexWorld board color
-                , SvgA.fill_ "rgb(214, 175, 114)"
                 , SvgA.points_
                     $ Hex.vertices Tall hexagon
                     # map (\(Point x y) -> show x <> "," <> show y)
                     # intercalate " "
+                , SvgA.klass_ "c1"
                 ]
                 []
           , edgeCell:
