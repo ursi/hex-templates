@@ -1,0 +1,9 @@
+body {
+	margin: 0;
+	background: #c1b9ab;
+	font-family: monospace;
+}
+
+* {
+  font-family: inherit;
+}
