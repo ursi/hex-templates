@@ -174,7 +174,7 @@ main = do
                     [ A.style_
                         """
                         background: gray;
-                        z-index: 1;
+                        z-index: 2;
                         white-space: pre-wrap;
                         """
                     ]
