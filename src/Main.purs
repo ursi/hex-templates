@@ -52,7 +52,10 @@ import Web.HTML.HTMLInputElement as Input
 main :: Effect Unit
 main = do
   void $ runInBody Deku.do
-    set /\ poll <- magic { specStr: useState "7:78^:7-4434.7787.-5:9:77" }
+    set /\ poll <- magic
+      { specStr: useState "7:78^:7-4434.7787.-5:9:77"
+      , showInstructions: useState false
+      }
     let
       svgDataP :: Poll (Either Error SvgData)
       svgDataP = poll.specStr <#> \specStr ->
@@ -135,6 +138,76 @@ main = do
           ]
           []
       ]
+
+  instructions set poll =
+    poll.showInstructions <#~> \showInstructions ->
+      fixed
+        [ D.button
+            [ L.runOn_ L.click $ set.showInstructions $ not showInstructions
+            , A.style_
+                """
+                position: absolute;
+                top: 1em;
+                left: 1em;
+                z-index: 1;
+                """
+            ]
+            [ text_ "instructions" ]
+        , if showInstructions then
+            D.div
+              [ A.style_
+                  """
+                  position: absolute;
+                  top: 0;
+                  left: 0;
+                  display: flex;
+                  justify-content: center;
+                  align-items: center;
+                  width: 100vw;
+                  height: 100vh;
+                  """
+              ]
+              [ D.div
+                  [ A.style_
+                      """
+                      background: gray;
+                      z-index: 1;
+                      white-space: pre-wrap;
+                      """
+                  ]
+                  [ text_ "The central tool is the "
+                  , D.i__ "clock move"
+                  , text_ ". for each of the numbers on the clock, there is a natural corresponding step one can take from a reference hexagon. Even numbers are bridges, and odd numbers are adjacent."
+                  , D.code__
+                      """
+
+   c
+a b 1 2
+ 9 - 3
+8 7 5 4
+   6
+
+"""
+                  , text_ "We use these, plus some shorthand to describe all the parts of a template:"
+                  , D.h2__ "Stones"
+                  , text_ "The stones section starts with a number that indicates the height of the anchor point. If it is a one stone template, that's all you need, otherwise a `:` is placed after the anchor, and the other stones are specified as a colon separated list of clock move sequences to get from where you are, to the next stone. To place a stone relative to the anchor instead of the last placed stone, begin the sequence with `*`. To denote a stone as being connected to opposite edge, end the sequence with `^`."
+                  , D.h2__ "Carrier"
+                  , text_
+                      """Carriers are specified with two clock move sequences, both starting from the anchor and ending at the edge. The two sequences describe the border of the carrier. Clock moves that correspond to bridges bring the whole bridge into the carrier. There are also three shorthand symbols:
+1. `.`: Continue this move until it forms a bridge to the edge.
+2. `z`: Continue this move until it "drops to a ziggurat". This is a common enough pattern that it gets a shorthand.
+3. `s`: Mirror the sequence.
+`.` and `z` indicate the end of a sequence, so the next move starts back at the anchor. In the case where the first sequence ends without one of those markers, `*` is again used to set it back to the anchor (as I write this I see now that that's not strictly necessary, but I'll probably keep it in for readability).
+"""
+                  , D.h2__ "Enemy Stones/Holes"
+                  , text_ "Enemy stones are specified the same way as stones, minus the initial anchor part and the `^` syntax."
+                  , D.h2__ "Sections"
+                  , text_ "The sections are separated by `-`s."
+                  ]
+              ]
+          else
+            mempty
+        ]
 
 type CarrierData =
   { cells :: NonEmptyArray IPoint
