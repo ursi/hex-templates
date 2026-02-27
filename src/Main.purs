@@ -101,10 +101,12 @@ main = do
           align-items: center;
           """
       ]
-      [ inputs set poll
+      [ instructions set poll
+      , inputs set poll
       , hexagonSvgs svgDataP
       ]
   where
+  -- in a `where` so I don't thave to give it a type annotation
   inputs set poll =
     D.div
       [ A.style_
