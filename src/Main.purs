@@ -266,7 +266,7 @@ hexagonSvgs svgDataP =
             )
             ( \use ->
                 let
-                  t u gridPoint = u [ translate gridPoint ]
+                  t u gridPoint = u [ translate hexagon gridPoint ]
                 in
                   [ -- carrier svgs
                     t use.emptyCell <$> carrier.cells # Array.fromFoldable # fixed
@@ -431,19 +431,24 @@ hexagonSvgs svgDataP =
       else
         use.disconnectedStone
     )
-      [ translate stone.pos ]
+      [ translate hexagon stone.pos ]
 
-  translate :: ∀ f r. Applicative f => IPoint -> f (Attribute (transform :: String | r))
-  translate gridPoint =
-    let
-      point = Hex.gridPoint hexagon gridPoint
-    in
-      SvgA.transform_
-        $ "translate("
-        <> show (Point.x point)
-        <> ","
-        <> show (Point.y point)
-        <> ")"
+translate
+  :: ∀ f r
+   . Applicative f
+  => Hexagon
+  -> IPoint
+  -> f (Attribute (transform :: String | r))
+translate hexagon gridPoint =
+  let
+    point = Hex.gridPoint hexagon gridPoint
+  in
+    SvgA.transform_
+      $ "translate("
+      <> show (Point.x point)
+      <> ","
+      <> show (Point.y point)
+      <> ")"
 
 makeViewBox :: Hexagon -> Number -> NonEmptyArray IPoint -> String
 makeViewBox hexagon strokeWidth positions =
