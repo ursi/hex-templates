@@ -303,7 +303,7 @@ hexagonSvgs svgDataP =
       [ makeSvg
           [ SvgA.width_ "100%"
           , SvgA.height_ "100%"
-          , SvgA.viewBox_ $ makeViewBox allPoints
+          , SvgA.viewBox_ $ makeViewBox hexagon strokeWidth allPoints
           , SvgA.transform_ "scale(1,-1)"
           , SvgA.preserveAspectRatio_ "xMidYMin"
           ]
@@ -445,33 +445,33 @@ hexagonSvgs svgDataP =
         <> show (Point.y point)
         <> ")"
 
-  makeViewBox :: NonEmptyArray IPoint -> String
-  makeViewBox positions =
+makeViewBox :: Hexagon -> Number -> NonEmptyArray IPoint -> String
+makeViewBox hexagon strokeWidth positions =
+  let
+    { min, max } = Point.box $ fold1 $ svgGridPoints <$> positions
+    strokeOffset =
+      Point
+        (0.5 * strokeWidth)
+        (0.5 * Hex.ratio * strokeWidth)
+  in
+    box2viewBox
+      { min: min - strokeOffset
+      , max: max + strokeOffset
+      }
+  where
+  box2viewBox :: Box Number -> String
+  box2viewBox { min, max } =
     let
-      { min, max } = Point.box $ fold1 $ svgGridPoints <$> positions
-      strokeOffset =
-        Point
-          (0.5 * strokeWidth)
-          (0.5 * Hex.ratio * strokeWidth)
+      diff = max - min
+      width = Point.x diff
+      height = Point.y diff
     in
-      box2viewBox
-        { min: min - strokeOffset
-        , max: max + strokeOffset
-        }
-    where
-    box2viewBox :: Box Number -> String
-    box2viewBox { min, max } =
-      let
-        diff = max - min
-        width = Point.x diff
-        height = Point.y diff
-      in
-        [ Point.x min, Point.y min, width, height ]
-          <#> show
-          # intercalate " "
+      [ Point.x min, Point.y min, width, height ]
+        <#> show
+        # intercalate " "
 
-    svgGridPoints :: IPoint -> NonEmptyArray NPoint
-    svgGridPoints pos = add (Hex.gridPoint hexagon pos) <$> Hex.vertices Tall hexagon
+  svgGridPoints :: IPoint -> NonEmptyArray NPoint
+  svgGridPoints pos = add (Hex.gridPoint hexagon pos) <$> Hex.vertices Tall hexagon
 
 fill :: CarrierData -> NonEmptyArray IPoint
 fill { cells, endpoints } =
