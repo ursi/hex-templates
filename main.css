@@ -1,3 +1,8 @@
+:root {
+  --color1: #978769;
+  --scale1: 1.3;
+}
+
 body {
 	margin: 0;
 	background: #c1b9ab;
@@ -11,6 +16,7 @@ body {
 .c0 {
 	color: #870000;
 	font-weight: bold;
+	font-size: calc(var(--scale1) * 1em);
 }
 
 .c1 {

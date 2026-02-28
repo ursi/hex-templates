@@ -145,14 +145,28 @@ main = do
         [ D.button
             [ L.runOn_ L.click $ set.showInstructions $ not showInstructions
             , A.style_
-                """
-                position: absolute;
-                top: 1em;
-                left: 1em;
-                z-index: 1;
-                """
+                $
+                  """
+                  --size: 1.7em;
+                  position: absolute;
+                  top: 1em;
+                  right: 1em;
+                  z-index: 1;
+                  border: none;
+                  font-size: var(--size);
+                  border-radius: var(--size);
+                  width: var(--size);
+                  height: var(--size);
+                  cursor: pointer;
+                  z-index: 3;
+                  """
+                <>
+                  if showInstructions then
+                    "background: var(--color1); border: 1px solid;"
+                  else
+                    ""
             ]
-            [ text_ "instructions" ]
+            [ text_ "?" ]
         , if showInstructions then
             let
               literal text = D.span [ A.klass_ "c0" ] [ text_ text ]
@@ -173,9 +187,16 @@ main = do
                 [ D.div
                     [ A.style_
                         """
-                        background: gray;
+                        background: var(--color1);
                         z-index: 2;
                         white-space: pre-wrap;
+                        padding: 1em;
+                        max-height: 80%;
+                        max-width: 80%;
+                        overflow: auto;
+                        border-radius: 1em;
+                        box-shadow: #0005 0 2px 4px;
+                        font-size: 1.3em;
                         """
                     ]
                     [ text_ "The central tool is the "
@@ -183,45 +204,72 @@ main = do
                     , text_ ". for each of the numbers on the clock, there is a natural corresponding step one can take from a reference hexagon. Even numbers are bridges, and odd numbers are adjacent."
                     , diagram
                     , text_ "We use these, plus some shorthand to describe all the parts of a template:"
+                    , D.h2__ "Sections"
+                    , text_ "A template is specified by 2 or 3 sections, separated by "
+                    , literal $ fromChar Sntx.sectionSep
+                    , text_ "s (hyphens)."
                     , D.h2__ "Stones"
-                    , text_ "The stones section starts with a number that indicates the height of the anchor point. If it is a one stone template, that's all you need, otherwise a "
-                    , literal ":"
-                    , text_ " is placed after the anchor, and the other stones are specified as a colon separated list of clock move sequences to get from where you are, to the next stone. To place a stone relative to the anchor instead of the last placed stone, begin the sequence with "
-                    , literal "*"
-                    , text_ ". To denote a stone as being connected to opposite edge, end the sequence with "
-                    , literal "^"
+                    , text_ "The stones section starts with a number that indicates the height of the anchor point. If it is a one-stone template, that's all you need, otherwise a "
+                    , literal $ fromChar Sntx.stoneSep
+                    , text_ " is placed after the anchor, and the other stones are specified as a colon-separated list of clock move sequences to get from where you are, to the next stone. To place a stone relative to the anchor instead of the last placed stone, begin the sequence with "
+                    , literal $ fromChar Sntx.reset
+                    , text_ ". To denote a stone as being connected to the opposite edge, end the sequence with "
+                    , literal $ fromChar Sntx.connected
                     , text_ "."
                     , D.h2__ "Carrier"
                     , text_ "Carriers are specified with two clock move sequences, both starting from the anchor and ending at the edge. The two sequences describe the border of the carrier. Clock moves that correspond to bridges bring the whole bridge into the carrier. There are also three shorthand symbols:"
                     , D.ol
                         [ A.style_ "margin: 0;" ]
-                        [ D.li []
-                            [ literal "."
+                        [ D.li_
+                            [ literal $ fromChar Sntx.toEdge
                             , text_ ": Continue this move until it forms a bridge to the edge."
                             ]
-                        , D.li []
-                            [ literal "z"
-                            , text_ ": Continue this move until it \"drops to a ziggurat\". This is a common enough pattern that it gets a shorthand."
+                        , D.li_
+                            [ literal $ fromChar Sntx.toZig
+                            , text_ ": Continue this move until it \"drops to a ziggurat\"."
+                            , D.ul
+                                [ A.style_ "padding-left: calc((var(--scale1) + 4) * 1ch);" ]
+                                [ D.li_
+                                    [ literal ("4" <> fromChar Sntx.toZig)
+
+                                    , text_ "/"
+                                    , literal ("5" <> fromChar Sntx.toZig)
+                                    , text_ " means "
+                                    , literal "4"
+                                    , text_ "/"
+                                    , literal "5"
+                                    , text_ " until you get to row 4, then "
+                                    , literal "545"
+                                    ]
+                                , D.li_
+                                    [ literal ("8" <> fromChar Sntx.toZig)
+
+                                    , text_ "/"
+                                    , literal ("7" <> fromChar Sntx.toZig)
+                                    , text_ " means "
+                                    , literal "8"
+                                    , text_ "/"
+                                    , literal "7"
+                                    , text_ " until you get to row 4, then "
+                                    , literal "787"
+                                    ]
+                                ]
                             ]
-                        , D.li []
-                            [ literal "s"
+                        , D.li_
+                            [ literal $ fromChar Sntx.sym
                             , text_ ": Mirror the sequence."
                             ]
                         ]
-                    , literal "."
+                    , literal $ fromChar Sntx.toEdge
                     , text_ " and "
-                    , literal "z"
+                    , literal $ fromChar Sntx.toZig
                     , text_ " indicate the end of a sequence, so the next move starts back at the anchor. In the case where the first sequence ends without one of those markers, "
-                    , literal "*"
+                    , literal $ fromChar Sntx.reset
                     , text_ " is again used to set it back to the anchor (as I write this I see now that that's not strictly necessary, but I'll probably keep it in for readability)."
                     , D.h2__ "Enemy Stones/Holes"
                     , text_ "Enemy stones are specified the same way as stones, minus the initial anchor part and the "
-                    , literal "^"
-                    , text_ " syntax."
-                    , D.h2__ "Sections"
-                    , text_ "The sections are separated by "
-                    , literal "-"
-                    , text_ "s."
+                    , literal $ fromChar Sntx.connected
+                    , text_ " syntax. This section can be elided if there are no enemy stones in the template."
                     ]
                 ]
           else
@@ -230,10 +278,10 @@ main = do
     where
     diagram :: Nut
     diagram =
-      D.div_
+      D.div [ A.style_ "margin: 1em 0;" ]
         [ makeSvg
-            [ SvgA.width_ "200px"
-            , SvgA.height_ "200px"
+            [ SvgA.width_ "250px"
+            , SvgA.height_ "250px"
             , SvgA.viewBox_ $ makeViewBox hexagon strokeWidth
                 (snd <$> labelsAndPoints)
             , SvgA.transform_ "scale(1,-1)"
@@ -287,9 +335,9 @@ main = do
         , "7" /\ Point 0 (-1)
         , "8" /\ Point (-1) (-1)
         , "9" /\ Point (-1) 0
-        , "a" /\ Point (-2) 1
-        , "b" /\ Point (-1) 1
-        , "c" /\ Point (-1) 2
+        , fromChar Sntx._10 /\ Point (-2) 1
+        , fromChar Sntx._11 /\ Point (-1) 1
+        , fromChar Sntx._12 /\ Point (-1) 2
         ]
 
 type CarrierData =
