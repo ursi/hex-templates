@@ -181,16 +181,7 @@ main = do
                     [ text_ "The central tool is the "
                     , D.i__ "clock move"
                     , text_ ". for each of the numbers on the clock, there is a natural corresponding step one can take from a reference hexagon. Even numbers are bridges, and odd numbers are adjacent."
-                    , D.code__
-                        """
-
-   c
-a b 1 2
- 9 - 3
-8 7 5 4
-   6
-
-"""
+                    , diagram
                     , text_ "We use these, plus some shorthand to describe all the parts of a template:"
                     , D.h2__ "Stones"
                     , text_ "The stones section starts with a number that indicates the height of the anchor point. If it is a one stone template, that's all you need, otherwise a "
@@ -236,6 +227,70 @@ a b 1 2
           else
             mempty
         ]
+    where
+    diagram :: Nut
+    diagram =
+      D.div_
+        [ makeSvg
+            [ SvgA.width_ "200px"
+            , SvgA.height_ "200px"
+            , SvgA.viewBox_ $ makeViewBox hexagon strokeWidth
+                (snd <$> labelsAndPoints)
+            , SvgA.transform_ "scale(1,-1)"
+            , SvgA.preserveAspectRatio_ "xMidYMin"
+            ]
+            { hex: Svg.polygon
+                [ SvgA.strokeWidth_ $ show strokeWidth
+                , SvgA.stroke_ "black"
+                -- HexWorld board color
+                , SvgA.points_
+                    $ Hex.vertices Tall hexagon
+                    # map (\(Point x y) -> show x <> "," <> show y)
+                    # intercalate " "
+                , SvgA.klass_ "c1"
+                ]
+                []
+            }
+
+            ( \use ->
+                [ (\p -> use.hex [ translateOnly hexagon p ])
+                    <$> (snd <$> labelsAndPoints)
+                    # Array.fromFoldable
+                    # fixed
+                , ( \lp -> Svg.text
+                      [ SvgA.klass_ "c2"
+                      , SvgA.fontSize_ ".75"
+                      , SvgA.textAnchor_ "middle"
+                      , SvgA.dominantBaseline_ "middle"
+                      , SvgA.transform_
+                          $ translate hexagon (snd lp)
+                          <> " scale(1, -1)"
+                      ]
+                      [ text_ $ fst lp ]
+                  )
+                    <$> labelsAndPoints
+                    # Array.fromFoldable
+                    # fixed
+                ]
+            )
+        ]
+      where
+      hexagon = Circ 1.0
+      strokeWidth = 0.1
+      labelsAndPoints = cons' ("*" /\ (Point 0 0))
+        [ "1" /\ Point 0 1
+        , "2" /\ Point 1 1
+        , "3" /\ Point 1 0
+        , "4" /\ Point 2 (-1)
+        , "5" /\ Point 1 (-1)
+        , "6" /\ Point 1 (-2)
+        , "7" /\ Point 0 (-1)
+        , "8" /\ Point (-1) (-1)
+        , "9" /\ Point (-1) 0
+        , "a" /\ Point (-2) 1
+        , "b" /\ Point (-1) 1
+        , "c" /\ Point (-1) 2
+        ]
 
 type CarrierData =
   { cells :: NonEmptyArray IPoint
@@ -266,7 +321,7 @@ hexagonSvgs svgDataP =
             )
             ( \use ->
                 let
-                  t u gridPoint = u [ translate hexagon gridPoint ]
+                  t u gridPoint = u [ translateOnly hexagon gridPoint ]
                 in
                   [ -- carrier svgs
                     t use.emptyCell <$> carrier.cells # Array.fromFoldable # fixed
@@ -430,24 +485,23 @@ hexagonSvgs svgDataP =
       else
         use.disconnectedStone
     )
-      [ translate hexagon stone.pos ]
+      [ translateOnly hexagon stone.pos ]
 
-translate
+translateOnly
   :: ∀ f r
    . Applicative f
   => Hexagon
   -> IPoint
   -> f (Attribute (transform :: String | r))
+translateOnly hexagon gridPoint =
+  SvgA.transform_ $ translate hexagon gridPoint
+
+translate :: Hexagon -> IPoint -> String
 translate hexagon gridPoint =
   let
     point = Hex.gridPoint hexagon gridPoint
   in
-    SvgA.transform_
-      $ "translate("
-      <> show (Point.x point)
-      <> ","
-      <> show (Point.y point)
-      <> ")"
+    "translate(" <> show (Point.x point) <> "," <> show (Point.y point) <> ")"
 
 makeViewBox :: Hexagon -> Number -> NonEmptyArray IPoint -> String
 makeViewBox hexagon strokeWidth positions =
