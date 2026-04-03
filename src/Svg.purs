@@ -22,18 +22,18 @@ import Heterogeneous.Mapping
   )
 
 makeSvg
-  :: ∀ r ids
+  :: ∀ r defs
    . HFoldlWithIndex AddIds (Array Nut) r (Array Nut)
-  => HMapWithIndex ToUse r ids
+  => HMapWithIndex ToUse r defs
   => Array (Poll (Attribute (SVGSVGElement ())))
   -> r
-  -> (ids -> Array Nut)
+  -> (defs -> Array Nut)
   -> Nut
-makeSvg attrs defs idsToBody =
+makeSvg attrs defs defsToBody =
   Svg.svg attrs
     $ Array.cons
         (Svg.defs_ $ hfoldlWithIndex AddIds ([] :: Array Nut) defs)
-        (idsToBody $ hmapWithIndex ToUse defs)
+        (defsToBody $ hmapWithIndex ToUse defs)
 
 data ToUse = ToUse
 
