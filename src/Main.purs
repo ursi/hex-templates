@@ -299,7 +299,6 @@ main = do
                 ]
                 []
             }
-
             ( \use ->
                 [ (\p -> use.hex [ translateOnly hexagon p ])
                     <$> (snd <$> labelsAndPoints)
