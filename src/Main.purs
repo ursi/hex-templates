@@ -25,7 +25,6 @@ import Endpoints as Endpoints
 import FRP.Poll (Poll)
 import Hexagon (Hexagon(Circ), Orientation(Tall))
 import Hexagon as Hex
-import Magic (magic)
 import Movement
   ( Clock(C11, C9, C7, C5, C3, C1)
   , Move
@@ -52,13 +51,11 @@ import Web.HTML.HTMLInputElement as Input
 main :: Effect Unit
 main = do
   void $ runInBody Deku.do
-    set /\ poll <- magic
-      { specStr: useState "7:78^:7-4434.7787.-5:9:77"
-      , showInstructions: useState false
-      }
+    specStrS /\ specStrP <- useState "7:78^:7-4434.7787.-5:9:77"
+    showInstructionsS /\ showInstructionsP <- useState false
     let
       svgDataP :: Poll (Either Error SvgData)
-      svgDataP = poll.specStr <#> \specStr ->
+      svgDataP = specStrP <#> \specStr ->
         if specStr == "" then do
           pure
             { stones: pure $ Stone.connected $ Point 1 1
@@ -104,13 +101,17 @@ main = do
           align-items: center;
           """
       ]
-      [ instructions set poll
-      , inputs set poll
+      [ instructions { showInstructionsS, showInstructionsP }
+      , inputs { specStrS, specStrP }
       , hexagonSvgs svgDataP
       ]
   where
-  -- in a `where` so I don't thave to give it a type annotation
-  inputs set poll =
+  inputs
+    :: { specStrS :: Setter String
+       , specStrP :: Poll String
+       }
+    -> Nut
+  inputs { specStrS, specStrP } =
     D.div
       [ A.style_
           """
@@ -131,19 +132,24 @@ main = do
               text-align: center;
               outline: none;
               """
-          , A.value poll.specStr
-          , L.valueOn_ L.input set.specStr
+          , A.value specStrP
+          , L.valueOn_ L.input specStrS
           , A.spellcheck_ "false"
           , selfT_ \i -> void $ setTimeout 0 $ focus $ Input.toHTMLElement i
           ]
           []
       ]
 
-  instructions set poll =
-    poll.showInstructions <#~> \showInstructions ->
+  instructions
+    :: { showInstructionsS :: Setter Boolean
+       , showInstructionsP :: Poll Boolean
+       }
+    -> Nut
+  instructions { showInstructionsS, showInstructionsP } =
+    showInstructionsP <#~> \showInstructions ->
       fixed
         [ D.button
-            [ L.runOn_ L.click $ set.showInstructions $ not showInstructions
+            [ L.runOn_ L.click $ showInstructionsS $ not showInstructions
             , A.style_
                 $
                   """

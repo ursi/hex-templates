@@ -1,5 +1,6 @@
 module Lude
   ( module Exports
+  , Setter
   , unsafeFromRight
   , unsafeParseInt
   , logInfo
@@ -13,6 +14,8 @@ import Data.Newtype (class Newtype) as Exports
 import MasonPrelude as Exports
 import Partial.Unsafe (unsafePartial)
 import Partial.Unsafe (unsafePartial) as Exports
+
+type Setter a = a -> Effect Unit
 
 foreign import unsafeParseInt :: String -> Int
 foreign import logInfo :: ∀ a b. a -> b -> b
