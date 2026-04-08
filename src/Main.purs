@@ -52,7 +52,6 @@ main :: Effect Unit
 main = do
   void $ runInBody Deku.do
     specStrS /\ specStrP <- useState "7:78^:7-4434.7787.-5:9:77"
-    showInstructionsS /\ showInstructionsP <- useState false
     let
       svgDataP :: Poll (Either Error SvgData)
       svgDataP = specStrP <#> \specStr ->
@@ -101,7 +100,7 @@ main = do
           align-items: center;
           """
       ]
-      [ instructions { showInstructionsS, showInstructionsP }
+      [ instructions
       , inputs { specStrS, specStrP }
       , hexagonSvgs svgDataP
       ]
@@ -140,12 +139,9 @@ inputs { specStrS, specStrP } =
         []
     ]
 
-instructions
-  :: { showInstructionsS :: Setter Boolean
-     , showInstructionsP :: Poll Boolean
-     }
-  -> Nut
-instructions { showInstructionsS, showInstructionsP } =
+instructions :: Nut
+instructions = Deku.do
+  showInstructionsS /\ showInstructionsP <- useState false
   showInstructionsP <#~> \showInstructions ->
     fixed
       [ D.button
