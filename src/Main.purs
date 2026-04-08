@@ -105,245 +105,245 @@ main = do
       , inputs { specStrS, specStrP }
       , hexagonSvgs svgDataP
       ]
-  where
-  inputs
-    :: { specStrS :: Setter String
-       , specStrP :: Poll String
-       }
-    -> Nut
-  inputs { specStrS, specStrP } =
-    D.div
-      [ A.style_
-          """
-          position: absolute;
-          top: 10px;
-          z-index: 1;
-          """
-      ]
-      [ D.input
-          [ A.style_
-              """
-              font-size: min(2rem, 4vh);
-              border-radius: .25em;
-              border: none;
-              padding: .25em;
-              min-width: 26ch;
-              field-sizing: content;
-              text-align: center;
-              outline: none;
-              """
-          , A.value specStrP
-          , L.valueOn_ L.input specStrS
-          , A.spellcheck_ "false"
-          , selfT_ \i -> void $ setTimeout 0 $ focus $ Input.toHTMLElement i
+
+inputs
+  :: { specStrS :: Setter String
+     , specStrP :: Poll String
+     }
+  -> Nut
+inputs { specStrS, specStrP } =
+  D.div
+    [ A.style_
+        """
+        position: absolute;
+        top: 10px;
+        z-index: 1;
+        """
+    ]
+    [ D.input
+        [ A.style_
+            """
+            font-size: min(2rem, 4vh);
+            border-radius: .25em;
+            border: none;
+            padding: .25em;
+            min-width: 26ch;
+            field-sizing: content;
+            text-align: center;
+            outline: none;
+            """
+        , A.value specStrP
+        , L.valueOn_ L.input specStrS
+        , A.spellcheck_ "false"
+        , selfT_ \i -> void $ setTimeout 0 $ focus $ Input.toHTMLElement i
+        ]
+        []
+    ]
+
+instructions
+  :: { showInstructionsS :: Setter Boolean
+     , showInstructionsP :: Poll Boolean
+     }
+  -> Nut
+instructions { showInstructionsS, showInstructionsP } =
+  showInstructionsP <#~> \showInstructions ->
+    fixed
+      [ D.button
+          [ L.runOn_ L.click $ showInstructionsS $ not showInstructions
+          , A.style_
+              $
+                """
+                --size: 1.7em;
+                position: absolute;
+                top: 1em;
+                right: 1em;
+                z-index: 1;
+                border: none;
+                font-size: var(--size);
+                border-radius: var(--size);
+                width: var(--size);
+                height: var(--size);
+                cursor: pointer;
+                z-index: 3;
+                """
+              <>
+                if showInstructions then
+                  "background: var(--color1); border: 1px solid;"
+                else
+                  ""
           ]
-          []
-      ]
-
-  instructions
-    :: { showInstructionsS :: Setter Boolean
-       , showInstructionsP :: Poll Boolean
-       }
-    -> Nut
-  instructions { showInstructionsS, showInstructionsP } =
-    showInstructionsP <#~> \showInstructions ->
-      fixed
-        [ D.button
-            [ L.runOn_ L.click $ showInstructionsS $ not showInstructions
-            , A.style_
-                $
+          [ text_ "?" ]
+      , if showInstructions then
+          let
+            literal text = D.span [ A.klass_ "c0" ] [ text_ text ]
+          in
+            D.div
+              [ A.style_
                   """
-                  --size: 1.7em;
                   position: absolute;
-                  top: 1em;
-                  right: 1em;
-                  z-index: 1;
-                  border: none;
-                  font-size: var(--size);
-                  border-radius: var(--size);
-                  width: var(--size);
-                  height: var(--size);
-                  cursor: pointer;
-                  z-index: 3;
+                  top: 0;
+                  left: 0;
+                  display: flex;
+                  justify-content: center;
+                  align-items: center;
+                  width: 100vw;
+                  height: 100vh;
                   """
-                <>
-                  if showInstructions then
-                    "background: var(--color1); border: 1px solid;"
-                  else
-                    ""
-            ]
-            [ text_ "?" ]
-        , if showInstructions then
-            let
-              literal text = D.span [ A.klass_ "c0" ] [ text_ text ]
-            in
-              D.div
-                [ A.style_
-                    """
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    width: 100vw;
-                    height: 100vh;
-                    """
-                ]
-                [ D.div
-                    [ A.style_
-                        """
-                        background: var(--color1);
-                        z-index: 2;
-                        white-space: pre-wrap;
-                        padding: 1em;
-                        max-height: 80%;
-                        max-width: 80%;
-                        overflow: auto;
-                        border-radius: 1em;
-                        box-shadow: #0005 0 2px 4px;
-                        font-size: 1.3em;
-                        """
-                    ]
-                    [ text_ "The central tool is the "
-                    , D.i__ "clock move"
-                    , text_ ". for each of the numbers on the clock, there is a natural corresponding step one can take from a reference hexagon. Even numbers are bridges, and odd numbers are adjacent."
-                    , diagram
-                    , text_ "We use these, plus some shorthand to describe all the parts of a template:"
-                    , D.h2__ "Sections"
-                    , text_ "A template is specified by 2 or 3 sections, separated by "
-                    , literal $ fromChar Sntx.sectionSep
-                    , text_ "s (hyphens)."
-                    , D.h2__ "Stones"
-                    , text_ "The stones section starts with a number that indicates the height of the anchor point. If it is a one-stone template, that's all you need, otherwise a "
-                    , literal $ fromChar Sntx.stoneSep
-                    , text_ " is placed after the anchor, and the other stones are specified as a colon-separated list of clock move sequences to get from where you are, to the next stone. To place a stone relative to the anchor instead of the last placed stone, begin the sequence with "
-                    , literal $ fromChar Sntx.reset
-                    , text_ ". To denote a stone as being connected to the opposite edge, end the sequence with "
-                    , literal $ fromChar Sntx.connected
-                    , text_ "."
-                    , D.h2__ "Carrier"
-                    , text_ "Carriers are specified with two clock move sequences, both starting from the anchor and ending at the edge. The two sequences describe the border of the carrier. Clock moves that correspond to bridges bring the whole bridge into the carrier. There are also three shorthand symbols:"
-                    , D.ol
-                        [ A.style_ "margin: 0;" ]
-                        [ D.li_
-                            [ literal $ fromChar Sntx.toEdge
-                            , text_ ": Continue this move until it forms a bridge to the edge."
-                            ]
-                        , D.li_
-                            [ literal $ fromChar Sntx.toZig
-                            , text_ ": Continue this move until it \"drops to a ziggurat\"."
-                            , D.ul
-                                [ A.style_ "padding-left: calc((var(--scale1) + 4) * 1ch);" ]
-                                [ D.li_
-                                    [ literal ("4" <> fromChar Sntx.toZig)
+              ]
+              [ D.div
+                  [ A.style_
+                      """
+                      background: var(--color1);
+                      z-index: 2;
+                      white-space: pre-wrap;
+                      padding: 1em;
+                      max-height: 80%;
+                      max-width: 80%;
+                      overflow: auto;
+                      border-radius: 1em;
+                      box-shadow: #0005 0 2px 4px;
+                      font-size: 1.3em;
+                      """
+                  ]
+                  [ text_ "The central tool is the "
+                  , D.i__ "clock move"
+                  , text_ ". for each of the numbers on the clock, there is a natural corresponding step one can take from a reference hexagon. Even numbers are bridges, and odd numbers are adjacent."
+                  , diagram
+                  , text_ "We use these, plus some shorthand to describe all the parts of a template:"
+                  , D.h2__ "Sections"
+                  , text_ "A template is specified by 2 or 3 sections, separated by "
+                  , literal $ fromChar Sntx.sectionSep
+                  , text_ "s (hyphens)."
+                  , D.h2__ "Stones"
+                  , text_ "The stones section starts with a number that indicates the height of the anchor point. If it is a one-stone template, that's all you need, otherwise a "
+                  , literal $ fromChar Sntx.stoneSep
+                  , text_ " is placed after the anchor, and the other stones are specified as a colon-separated list of clock move sequences to get from where you are, to the next stone. To place a stone relative to the anchor instead of the last placed stone, begin the sequence with "
+                  , literal $ fromChar Sntx.reset
+                  , text_ ". To denote a stone as being connected to the opposite edge, end the sequence with "
+                  , literal $ fromChar Sntx.connected
+                  , text_ "."
+                  , D.h2__ "Carrier"
+                  , text_ "Carriers are specified with two clock move sequences, both starting from the anchor and ending at the edge. The two sequences describe the border of the carrier. Clock moves that correspond to bridges bring the whole bridge into the carrier. There are also three shorthand symbols:"
+                  , D.ol
+                      [ A.style_ "margin: 0;" ]
+                      [ D.li_
+                          [ literal $ fromChar Sntx.toEdge
+                          , text_ ": Continue this move until it forms a bridge to the edge."
+                          ]
+                      , D.li_
+                          [ literal $ fromChar Sntx.toZig
+                          , text_ ": Continue this move until it \"drops to a ziggurat\"."
+                          , D.ul
+                              [ A.style_ "padding-left: calc((var(--scale1) + 4) * 1ch);" ]
+                              [ D.li_
+                                  [ literal ("4" <> fromChar Sntx.toZig)
 
-                                    , text_ "/"
-                                    , literal ("5" <> fromChar Sntx.toZig)
-                                    , text_ " means "
-                                    , literal "4"
-                                    , text_ "/"
-                                    , literal "5"
-                                    , text_ " until you get to row 4, then "
-                                    , literal "545"
-                                    ]
-                                , D.li_
-                                    [ literal ("8" <> fromChar Sntx.toZig)
+                                  , text_ "/"
+                                  , literal ("5" <> fromChar Sntx.toZig)
+                                  , text_ " means "
+                                  , literal "4"
+                                  , text_ "/"
+                                  , literal "5"
+                                  , text_ " until you get to row 4, then "
+                                  , literal "545"
+                                  ]
+                              , D.li_
+                                  [ literal ("8" <> fromChar Sntx.toZig)
 
-                                    , text_ "/"
-                                    , literal ("7" <> fromChar Sntx.toZig)
-                                    , text_ " means "
-                                    , literal "8"
-                                    , text_ "/"
-                                    , literal "7"
-                                    , text_ " until you get to row 4, then "
-                                    , literal "787"
-                                    ]
-                                ]
-                            ]
-                        , D.li_
-                            [ literal $ fromChar Sntx.sym
-                            , text_ ": Mirror the sequence."
-                            ]
-                        ]
-                    , literal $ fromChar Sntx.toEdge
-                    , text_ " and "
-                    , literal $ fromChar Sntx.toZig
-                    , text_ " indicate the end of a sequence, so the next move starts back at the anchor. In the case where the first sequence ends without one of those markers, "
-                    , literal $ fromChar Sntx.reset
-                    , text_ " is again used to set it back to the anchor (as I write this I see now that that's not strictly necessary, but I'll probably keep it in for readability)."
-                    , D.h2__ "Enemy Stones/Holes"
-                    , text_ "Enemy stones are specified the same way as stones, minus the initial anchor part and the "
-                    , literal $ fromChar Sntx.connected
-                    , text_ " syntax. This section can be elided if there are no enemy stones in the template."
-                    ]
-                ]
-          else
-            mempty
-        ]
-    where
-    diagram :: Nut
-    diagram =
-      D.div [ A.style_ "margin: 1em 0;" ]
-        [ makeSvg
-            [ SvgA.width_ "250px"
-            , SvgA.height_ "250px"
-            , SvgA.viewBox_ $ makeViewBox hexagon strokeWidth
-                (snd <$> labelsAndPoints)
-            , SvgA.transform_ "scale(1,-1)"
-            , SvgA.preserveAspectRatio_ "xMidYMin"
-            ]
-            { hex: Svg.polygon
-                [ SvgA.strokeWidth_ $ show strokeWidth
-                , SvgA.stroke_ "black"
-                -- HexWorld board color
-                , SvgA.points_
-                    $ Hex.vertices Tall hexagon
-                    # map (\(Point x y) -> show x <> "," <> show y)
-                    # intercalate " "
-                , SvgA.klass_ "c1"
-                ]
-                []
-            }
-            ( \use ->
-                [ (\p -> use.hex [ translateOnly hexagon p ])
-                    <$> (snd <$> labelsAndPoints)
-                    # Array.fromFoldable
-                    # fixed
-                , ( \lp -> Svg.text
-                      [ SvgA.klass_ "c2"
-                      , SvgA.fontSize_ ".75"
-                      , SvgA.textAnchor_ "middle"
-                      , SvgA.dominantBaseline_ "middle"
-                      , SvgA.transform_
-                          $ translate hexagon (snd lp)
-                          <> " scale(1, -1)"
+                                  , text_ "/"
+                                  , literal ("7" <> fromChar Sntx.toZig)
+                                  , text_ " means "
+                                  , literal "8"
+                                  , text_ "/"
+                                  , literal "7"
+                                  , text_ " until you get to row 4, then "
+                                  , literal "787"
+                                  ]
+                              ]
+                          ]
+                      , D.li_
+                          [ literal $ fromChar Sntx.sym
+                          , text_ ": Mirror the sequence."
+                          ]
                       ]
-                      [ text_ $ fst lp ]
-                  )
-                    <$> labelsAndPoints
-                    # Array.fromFoldable
-                    # fixed
-                ]
-            )
-        ]
-      where
-      hexagon = Circ 1.0
-      strokeWidth = 0.1
-      labelsAndPoints = cons' ("*" /\ (Point 0 0))
-        [ "1" /\ Point 0 1
-        , "2" /\ Point 1 1
-        , "3" /\ Point 1 0
-        , "4" /\ Point 2 (-1)
-        , "5" /\ Point 1 (-1)
-        , "6" /\ Point 1 (-2)
-        , "7" /\ Point 0 (-1)
-        , "8" /\ Point (-1) (-1)
-        , "9" /\ Point (-1) 0
-        , fromChar Sntx._10 /\ Point (-2) 1
-        , fromChar Sntx._11 /\ Point (-1) 1
-        , fromChar Sntx._12 /\ Point (-1) 2
-        ]
+                  , literal $ fromChar Sntx.toEdge
+                  , text_ " and "
+                  , literal $ fromChar Sntx.toZig
+                  , text_ " indicate the end of a sequence, so the next move starts back at the anchor. In the case where the first sequence ends without one of those markers, "
+                  , literal $ fromChar Sntx.reset
+                  , text_ " is again used to set it back to the anchor (as I write this I see now that that's not strictly necessary, but I'll probably keep it in for readability)."
+                  , D.h2__ "Enemy Stones/Holes"
+                  , text_ "Enemy stones are specified the same way as stones, minus the initial anchor part and the "
+                  , literal $ fromChar Sntx.connected
+                  , text_ " syntax. This section can be elided if there are no enemy stones in the template."
+                  ]
+              ]
+        else
+          mempty
+      ]
+  where
+  diagram :: Nut
+  diagram =
+    D.div [ A.style_ "margin: 1em 0;" ]
+      [ makeSvg
+          [ SvgA.width_ "250px"
+          , SvgA.height_ "250px"
+          , SvgA.viewBox_ $ makeViewBox hexagon strokeWidth
+              (snd <$> labelsAndPoints)
+          , SvgA.transform_ "scale(1,-1)"
+          , SvgA.preserveAspectRatio_ "xMidYMin"
+          ]
+          { hex: Svg.polygon
+              [ SvgA.strokeWidth_ $ show strokeWidth
+              , SvgA.stroke_ "black"
+              -- HexWorld board color
+              , SvgA.points_
+                  $ Hex.vertices Tall hexagon
+                  # map (\(Point x y) -> show x <> "," <> show y)
+                  # intercalate " "
+              , SvgA.klass_ "c1"
+              ]
+              []
+          }
+          ( \use ->
+              [ (\p -> use.hex [ translateOnly hexagon p ])
+                  <$> (snd <$> labelsAndPoints)
+                  # Array.fromFoldable
+                  # fixed
+              , ( \lp -> Svg.text
+                    [ SvgA.klass_ "c2"
+                    , SvgA.fontSize_ ".75"
+                    , SvgA.textAnchor_ "middle"
+                    , SvgA.dominantBaseline_ "middle"
+                    , SvgA.transform_
+                        $ translate hexagon (snd lp)
+                        <> " scale(1, -1)"
+                    ]
+                    [ text_ $ fst lp ]
+                )
+                  <$> labelsAndPoints
+                  # Array.fromFoldable
+                  # fixed
+              ]
+          )
+      ]
+    where
+    hexagon = Circ 1.0
+    strokeWidth = 0.1
+    labelsAndPoints = cons' ("*" /\ (Point 0 0))
+      [ "1" /\ Point 0 1
+      , "2" /\ Point 1 1
+      , "3" /\ Point 1 0
+      , "4" /\ Point 2 (-1)
+      , "5" /\ Point 1 (-1)
+      , "6" /\ Point 1 (-2)
+      , "7" /\ Point 0 (-1)
+      , "8" /\ Point (-1) (-1)
+      , "9" /\ Point (-1) 0
+      , fromChar Sntx._10 /\ Point (-2) 1
+      , fromChar Sntx._11 /\ Point (-1) 1
+      , fromChar Sntx._12 /\ Point (-1) 2
+      ]
 
 type CarrierData =
   { cells :: NonEmptyArray IPoint
