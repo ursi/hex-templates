@@ -8,6 +8,7 @@ import Data.Array.NonEmpty as Ne
 import Data.Bifunctor (lmap)
 import Data.Foldable (elem, oneOf)
 import Data.Semigroup.Foldable (class Foldable1, fold1, foldl1)
+import Data.String as String
 import Deku.Core (Attribute, Nut, fixed)
 import Deku.DOM (text_)
 import Deku.DOM as D
@@ -45,13 +46,25 @@ import StringParser (ParseError, Parser, runParser)
 import StringParser as Sp
 import Svg (Use, makeSvg)
 import Syntax as Sntx
+import Web.HTML as WH
 import Web.HTML.HTMLElement (focus)
 import Web.HTML.HTMLInputElement as Input
+import Web.HTML.Location as Loc
+import Web.HTML.Window as Window
 
 main :: Effect Unit
 main = do
+  frag <- WH.window >>= Window.location >>= Loc.hash
+  initial <-
+    if frag == "" then do
+      let default = "7:78^:7-4434.7787.-5:9:77"
+      setFrag default
+      pure default
+    else
+      pure $ String.drop 1 frag
+
   void $ runInBody Deku.do
-    specStrS /\ specStrP <- useState "7:78^:7-4434.7787.-5:9:77"
+    specStrS /\ specStrP <- useState initial
     let
       svgDataP :: Poll (Either Error SvgData)
       svgDataP = specStrP <#> \specStr ->
@@ -132,7 +145,9 @@ inputs { specStrS, specStrP } =
             outline: none;
             """
         , A.value specStrP
-        , L.valueOn_ L.input specStrS
+        , L.valueOn_ L.input \ss -> do
+            setFrag ss
+            specStrS ss
         , A.spellcheck_ "false"
         , selfT_ \i -> void $ setTimeout 0 $ focus $ Input.toHTMLElement i
         ]
@@ -691,3 +706,6 @@ parseTemplateSpec input = do
 
   allSoFar :: ∀ a. a -> Parser a
   allSoFar = Sp.try <. ($>) (Sp.eof <|> (Sp.char Sntx.sectionSep *> Sp.eof))
+
+setFrag :: String -> Effect Unit
+setFrag frag = WH.window >>= Window.location >>= Loc.setHash frag
