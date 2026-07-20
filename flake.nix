@@ -56,12 +56,15 @@
                     deploy = {
                       description = "deploy the app to GitHub Pages";
                       script = ''
+                        git stash
                         git checkout -B pages
+                        purs-nix compile
                         purs-backend-es bundle-app --int-tags -y -t main.js
                         git add -f main.js
                         git commit -m deploy
                         git push -f
                         git checkout -
+                        git stash pop
                         purs-nix bundle
                       '';
                     };
