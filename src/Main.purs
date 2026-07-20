@@ -708,7 +708,7 @@ parseTemplateSpec input = do
   allSoFar = Sp.try <. ($>) (Sp.eof <|> (Sp.char Sntx.sectionSep *> Sp.eof))
 
 setFrag :: String -> Effect Unit
-setFrag frag = WH.window >>= Window.location >>= Loc.setHash frag
+setFrag frag = WH.window >>= Window.location >>= Loc.setHash (frag <> "#")
 
 getCurrentFragSpec :: Effect String
 getCurrentFragSpec = do
@@ -718,3 +718,4 @@ getCurrentFragSpec = do
       ""
     else
       String.drop 1 frag
+        # \s -> String.take (String.length s - 1) s
