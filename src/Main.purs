@@ -54,14 +54,14 @@ import Web.HTML.Window as Window
 
 main :: Effect Unit
 main = do
-  frag <- WH.window >>= Window.location >>= Loc.hash
+  frag <- getCurrentFragSpec
   initial <-
     if frag == "" then do
       let default = "7:78^:7-4434.7787.-5:9:77"
       setFrag default
       pure default
     else
-      pure $ String.drop 1 frag
+      pure frag
 
   void $ runInBody Deku.do
     specStrS /\ specStrP <- useState initial
@@ -709,3 +709,12 @@ parseTemplateSpec input = do
 
 setFrag :: String -> Effect Unit
 setFrag frag = WH.window >>= Window.location >>= Loc.setHash frag
+
+getCurrentFragSpec :: Effect String
+getCurrentFragSpec = do
+  frag <- WH.window >>= Window.location >>= Loc.hash
+  pure
+    if frag == "" then do
+      ""
+    else
+      String.drop 1 frag
